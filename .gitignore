@@ -1,0 +1,17 @@
+# Data
+data_raw/
+data_processed/
+clients/
+*.csv
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,145 @@
+WHAT YOU NEED TO DO NOW (Step-by-Step)
+STEP 1: Set Up Your Python Environment (Today)
+Since you're on Windows and don't have conda yet:
+
+Option A: Install Miniconda (you're already on the page)
+​
+
+Click the green "Download" button on the Miniconda page
+
+Install Miniconda for Windows (accept defaults, but check "Add to PATH" if given option)
+
+Open Anaconda Prompt from Start menu
+
+Run:
+
+bash
+conda create -n fl_ids python=3.10 -y
+conda activate fl_ids
+pip install pandas numpy scikit-learn matplotlib tensorflow==2.15.0 flwr==1.8.0
+Option B: Use Python venv (if you skip conda)
+
+Open PowerShell in C:\HTML\FL_IDS_Vehicle
+
+Run:
+
+powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install pandas numpy scikit-learn matplotlib tensorflow==2.15.0 flwr==1.8.0
+STEP 2: Organize Your Dataset (Tonight/Tomorrow)
+Inside C:\HTML\FL_IDS_Vehicle\, create this structure:
+
+text
+FL_IDS_Vehicle/
+  data_raw/
+    Vehicle_DS/        ← Move your 2.8GB extracted folders here
+      Benign/
+      Botnet/
+      Brute_Force/
+      DoS/
+      DDoS_or_LOIC/
+      SQL_Injection/
+  data_processed/      ← Will hold cleaned CSVs
+  src/                 ← Your Python code
+  notebooks/           ← For quick experiments (optional)
+Action:
+
+Move your Vehicle DS folder contents into data_raw/Vehicle_DS/
+
+Extract any .zip files inside each attack folder so you see .csv files
+
+STEP 3: Start Phase 1 – Data Preprocessing (This Week)
+Create src/preprocess.py and write code to:
+
+Read all CSVs from each attack folder
+
+Loop through Benign/, Botnet/, etc.
+
+Use pandas.read_csv() with chunking if files are large
+
+Add a label column
+
+For files in Benign/ → add column label = "Benign"
+
+For files in Botnet/ → add column label = "Botnet"
+
+Repeat for all attack types
+
+Merge into one DataFrame
+
+Concatenate all labeled DataFrames into merged_all
+
+Clean the data
+
+Drop columns with all NaN or ID columns
+
+Replace infinite values with 0 or NaN
+
+Handle missing values (drop rows or fill with median)
+
+Feature selection (optional for now, refine later)
+
+Keep ~40-60 important numeric features
+
+Drop obvious non-predictive columns (IP addresses, timestamps, etc.)
+
+Save cleaned dataset
+
+Save as data_processed/merged_all.csv
+
+STEP 4: Quick EDA (Exploratory Data Analysis)
+In a Jupyter notebook or simple script:
+
+Check class distribution (how many Benign vs. attacks)
+
+Visualize feature correlations
+
+Confirm you have ~1-1.5 million rows total
+
+STEP 5: Split Dataset for Federated Learning (Next Week)
+Once you have merged_all.csv, write code to:
+
+Split into 5 client datasets (or 8, or 10—your choice)
+
+Save as data_processed/client1.csv, client2.csv, …, client5.csv
+
+Two splitting strategies to try:
+
+IID (start with this): Random shuffle and split equally
+
+Non-IID (later): Give each client a different attack distribution
+
+STEP 6: Build Centralized Baseline IDS (Phase 1 Goal)
+In src/baseline_lr.py and src/baseline_cnn.py:
+
+Train Logistic Regression on full merged_all.csv
+
+Train simple CNN (like the paper's PCC-CNN)
+
+Evaluate: Accuracy, Precision, Recall, F1-score, Loss
+
+Goal: Achieve ~96-99% accuracy (centralized baseline)
+
+This gives you a benchmark to compare FL against later.
+
+Timeline Summary (Your 3-Phase Plan)
+Phase	Duration	Key Milestone	Status
+Phase 1	Weeks 1-5	Cleaned dataset + Centralized IDS baseline (96-99% accuracy)	← START HERE
+Phase 2	Weeks 6-11	Working FL-IDS with 5 clients (94-97% accuracy)	Upcoming
+Phase 3	Weeks 12-16	Non-IID FL, scalability tests, final evaluation	Future
+Your Immediate To-Do (This Week)
+ Download dataset (DONE ✅)
+
+ Install Python environment (Miniconda or venv)
+
+ Organize folder structure
+
+ Write preprocess.py to merge and label CSVs
+
+ Check merged dataset size (~1M+ rows)
+
+ Start Phase 1 documentation in your report
+
+Need help with the actual preprocessing code? Let me know and I'll give you a ready-to-use preprocess.py template that handles your 6 attack folders automatically!
+
