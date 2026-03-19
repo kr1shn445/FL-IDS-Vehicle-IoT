@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FL-IDS — Live Federated Learning Simulation</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:     #05050A;
+  --bg2:    #0A0A12;
+  --bg3:    #10101A;
+  --panel:  #13131E;
+  --red:    #C0392B;
+  --red2:   #E74C3C;
+  --silver: #C0C4D8;
+  --muted:  #44445A;
+  --white:  #EEF0FF;
+  --green:  #27AE60;
+  --orange: #E67E22;
+  --purple: #8E44AD;
+  --blue:   #2980B9;
+  --gold:   #F39C12;
+  --border: #1A1A28;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--silver);
+  font-family: 'Rajdhani', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanlines */
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);
+  pointer-events:none;
+  z-index:9999;
+}
+
+/* ── HEADER ── */
+header {
+  position: fixed;
+  top:0; left:0; right:0;
+  height: 56px;
+  background: rgba(5,5,10,0.97);
+  border-bottom: 1px solid var(--red);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  z-index: 100;
+  gap: 20px;
+}
+
+.logo {
+  font-family: 'Orbitron', monospace;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--white);
+  letter-spacing: 4px;
+}
+
+.logo span { color: var(--red); }
+
+.header-badge {
+  background: rgba(192,57,43,0.15);
+  border: 1px solid var(--red);
+  color: var(--red);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  padding: 3px 10px;
+  letter-spacing: 2px;
+}
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.live-dot.active {
+  background: var(--green);
+  animation: blink 1s infinite;
+}
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* ── LAYOUT ── */
+.layout {
+  margin-top: 56px;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  grid-template-rows: auto 1fr;
+  min-height: calc(100vh - 56px);
+}
+
+/* ── LEFT PANEL ── */
+.left-panel {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  grid-row: 1 / 3;
+  overflow-y: auto;
+  max-height: calc(100vh - 56px);
+  position: sticky;
+  top: 56px;
+}
+
+/* ── RIGHT TOP ── */
+.right-top {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+/* ── RIGHT MAIN ── */
+.right-main {
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+/* ── SECTION TITLE ── */
+.sec-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* ── UPLOAD ── */
+.upload-area {
+  border: 2px dashed var(--muted);
+  background: var(--bg3);
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s;
+  border-radius: 2px;
+}
+
+.upload-area:hover, .upload-area.over {
+  border-color: var(--red);
+  background: rgba(192,57,43,0.06);
+}
+
+.upload-icon { font-size: 28px; margin-bottom: 8px; }
+
+.upload-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  color: var(--silver);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.upload-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+/* ── CONFIG ── */
+.config-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+}
+
+.config-key { color: var(--muted); }
+.config-val { color: var(--white); font-weight: 700; }
+
+/* ── BTN ── */
+.btn {
+  background: var(--red);
+  color: var(--white);
+  border: none;
+  width: 100%;
+  padding: 13px;
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 2px;
+}
+
+.btn:hover:not(:disabled) { background: var(--red2); }
+.btn:disabled { background: var(--muted); cursor: not-allowed; opacity: 0.6; }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.btn-ghost:hover:not(:disabled) { border-color: var(--silver); color: var(--silver); background: transparent; }
+
+/* ── ROUND PROGRESS ── */
+.rounds-row {
+  display: flex;
+  gap: 6px;
+}
+
+.round-pip {
+  flex: 1;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  transition: all 0.3s;
+  border-radius: 2px;
+}
+
+.round-pip.active { border-color: var(--gold); color: var(--gold); background: rgba(243,156,18,0.1); animation: blink 1s infinite; }
+.round-pip.done   { border-color: var(--green); color: var(--green); background: rgba(39,174,96,0.1); }
+
+/* ── CLIENTS ── */
+.clients-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.client-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 10px 6px;
+  text-align: center;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.client-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background 0.3s;
+}
+
+.client-card.training { border-color: var(--gold); background: rgba(243,156,18,0.06); }
+.client-card.training::after { background: var(--gold); }
+.client-card.sending  { border-color: var(--green); background: rgba(39,174,96,0.06); }
+.client-card.sending::after  { background: var(--green); }
+.client-card.done     { border-color: var(--muted); }
+.client-card.done::after     { background: var(--muted); }
+
+.client-id {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.client-acc-val {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--silver);
+}
+
+.client-status {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ── SERVER BOX ── */
+.server-box {
+  background: var(--bg3);
+  border: 2px solid var(--red);
+  border-radius: 2px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.server-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  color: var(--red);
+  letter-spacing: 2px;
+}
+
+.server-acc {
+  font-family: 'Orbitron', monospace;
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--white);
+}
+
+.server-meta {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.server-stats {
+  margin-left: auto;
+  display: flex;
+  gap: 24px;
+}
+
+.sstat { text-align: center; }
+.sstat-val { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:var(--white); }
+.sstat-label { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:2px; }
+
+/* ── LOG ── */
+.log-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 12px 14px;
+  height: 200px;
+  overflow-y: auto;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+}
+
+.log-line { padding: 2px 0; line-height: 1.5; }
+.log-line.info    { color: var(--muted); }
+.log-line.success { color: var(--green); }
+.log-line.error   { color: var(--red2); }
+.log-line.gold    { color: var(--gold); }
+.log-line.client  { color: var(--blue); }
+.log-line.dp      { color: var(--purple); }
+.log-line.round   { color: var(--white); font-weight:700; }
+
+/* ── CHARTS ROW ── */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content:'';
+  position:absolute;
+  top:0;left:0;
+  width:3px;height:100%;
+  background:var(--red);
+}
+
+/* ── GRAPHS GRID ── */
+.graphs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.graph-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 14px;
+}
+
+.graph-card img {
+  width: 100%;
+  border-radius: 2px;
+  display: block;
+}
+
+.graph-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  color: var(--red);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* ── PROGRESS BAR ── */
+.progress-wrap {
+  background: var(--bg3);
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--red);
+  transition: width 0.4s ease;
+}
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.tab {
+  padding: 10px 20px;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab:hover { color: var(--silver); }
+.tab.active { color: var(--white); border-bottom-color: var(--red); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ── DP PANEL ── */
+.dp-panel {
+  display: grid;
+  grid-template-columns: 1fr 40px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.dp-weights-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 10px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.dp-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(26,26,40,0.8);
+}
+
+.dp-key { color: var(--muted); }
+.dp-orig { color: var(--blue); }
+.dp-noised { color: var(--red2); }
+
+.dp-arrow-col {
+  text-align: center;
+  color: var(--red);
+  font-size: 20px;
+}
+
+/* ── PHASE DONE BANNER ── */
+.done-banner {
+  display: none;
+  background: linear-gradient(135deg, rgba(39,174,96,0.15), rgba(39,174,96,0.05));
+  border: 1px solid var(--green);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border-radius: 2px;
+}
+
+.done-banner.show { display: flex; align-items: center; gap: 16px; }
+
+.done-icon { font-size: 28px; }
+
+.done-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  color: var(--green);
+  letter-spacing: 2px;
+}
+
+.done-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.done-stats {
+  margin-left: auto;
+  display: flex;
+  gap: 24px;
+}
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">FL<span>-</span>IDS</div>
+  <div class="header-badge">LIVE SIMULATION</div>
+  <div class="header-right">
+    <span><span class="live-dot" id="live-dot"></span><span id="live-label">IDLE</span></span>
+    <span style="color:var(--border)">|</span>
+    <span>3 ROUNDS · 5 CLIENTS · GAUSSIAN DP</span>
+    <span style="color:var(--border)">|</span>
+    <span id="clock" style="color:var(--red)"></span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="left-panel">
+
+    <div>
+      <div class="sec-title">Upload Dataset</div>
+      <div class="upload-area" id="upload-area"
+           onclick="document.getElementById('file-in').click()">
+        <div class="upload-icon">📂</div>
+        <div class="upload-title">DROP CSV HERE</div>
+        <div class="upload-sub">CIC-IDS2018 format with Label column</div>
+      </div>
+      <input type="file" id="file-in" accept=".csv" style="display:none" onchange="onFileSelect(this)">
+    </div>
+
+    <div>
+      <div class="sec-title">Configuration</div>
+      <div class="config-row"><span class="config-key">NUM_CLIENTS</span><span class="config-val">5</span></div>
+      <div class="config-row"><span class="config-key">NUM_ROUNDS</span><span class="config-val">3</span></div>
+      <div class="config-row"><span class="config-key">LOCAL_EPOCHS</span><span class="config-val">2</span></div>
+      <div class="config-row"><span class="config-key">BATCH_SIZE</span><span class="config-val">512</span></div>
+      <div class="config-row"><span class="config-key">LEARNING_RATE</span><span class="config-val">0.001</span></div>
+      <div class="config-row"><span class="config-key">DP CLIP NORM</span><span class="config-val">5.0</span></div>
+      <div class="config-row"><span class="config-key">DP NOISE σ</span><span class="config-val">0.001</span></div>
+      <div class="config-row"><span class="config-key">SPLIT</span><span class="config-val">EQUAL (1/5 each)</span></div>
+      <div class="config-row"><span class="config-key">TEST SIZE</span><span class="config-val">20%</span></div>
+    </div>
+
+    <div>
+      <button class="btn" id="start-btn" onclick="startSim()" disabled>
+        ▶ START SIMULATION
+      </button>
+      <button class="btn btn-ghost" id="reset-btn" onclick="resetSim()">
+        ↺ RESET
+      </button>
+    </div>
+
+    <div>
+      <div class="sec-title">Round Progress</div>
+      <div class="rounds-row" id="rounds-row">
+        <div class="round-pip" id="pip-1">R1</div>
+        <div class="round-pip" id="pip-2">R2</div>
+        <div class="round-pip" id="pip-3">R3</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-title">Overall Progress</div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="overall-progress" style="width:0%"></div>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:6px;" id="progress-label">
+        Waiting for upload...
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── RIGHT TOP ── -->
+  <div class="right-top">
+    <div class="server-box">
+      <div>
+        <div class="server-label">⬡ GLOBAL SERVER — FedAvg + Gaussian DP</div>
+        <div class="server-acc" id="server-acc">—</div>
+        <div class="server-meta" id="server-loss">Loss: —</div>
+      </div>
+      <div class="server-stats">
+        <div class="sstat">
+          <div class="sstat-val" id="stat-round">0/3</div>
+          <div class="sstat-label">ROUND</div>
+        </div>
+        <div class="sstat">
+          <div class="sstat-val" id="stat-clients">0/5</div>
+          <div class="sstat-label">CLIENTS DONE</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="clients-grid" id="clients-grid">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <!-- ── RIGHT MAIN ── -->
+  <div class="right-main">
+
+    <!-- Done banner -->
+    <div class="done-banner" id="done-banner">
+      <div class="done-icon">✓</div>
+      <div>
+        <div class="done-title">SIMULATION COMPLETE</div>
+        <div class="done-sub" id="done-sub">Training finished. All graphs generated below.</div>
+      </div>
+      <div class="done-stats" id="done-stats"></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('live', this)">LIVE MONITOR</div>
+      <div class="tab" onclick="switchTab('graphs', this)">RESULTS & GRAPHS</div>
+      <div class="tab" onclick="switchTab('dp', this)">DP MECHANISM</div>
+    </div>
+
+    <!-- TAB: LIVE MONITOR -->
+    <div class="tab-content active" id="tab-live">
+      <div class="charts-row">
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:8px;">Global Accuracy per Round</div>
+          <canvas id="acc-chart" height="160"></canvas>
+        </div>
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:8px;">Global Loss per Round</div>
+          <canvas id="loss-chart" height="160"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="sec-title" style="margin-bottom:8px;">Simulation Log</div>
+        <div class="log-box" id="log-box">
+          <div class="log-line info">// Waiting for CSV upload and simulation start...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: GRAPHS -->
+    <div class="tab-content" id="tab-graphs">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px;" id="graphs-placeholder">
+        // Graphs will appear here after simulation completes.
+      </div>
+      <div class="graphs-grid" id="graphs-grid" style="display:none;"></div>
+    </div>
+
+    <!-- TAB: DP -->
+    <div class="tab-content" id="tab-dp">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="sec-title">Differential Privacy Algorithm</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:2;color:var(--muted);">
+          <div><span style="color:var(--red);">INPUT:</span>  Local weights W after training, Clip C=5.0, Noise σ=0.001</div>
+          <div style="margin-top:6px;"><span style="color:var(--gold);">STEP 1 — Sensitivity Bounding:</span></div>
+          <div style="padding-left:20px;">norm = ||W||₂  &nbsp;←&nbsp; compute L2 norm of weight tensor</div>
+          <div style="padding-left:20px;">if norm > C:  W_clipped = W × (C / norm)  &nbsp;←&nbsp; scale down</div>
+          <div style="padding-left:20px;">else:         W_clipped = W               &nbsp;←&nbsp; no change needed</div>
+          <div style="margin-top:6px;"><span style="color:var(--gold);">STEP 2 — Gaussian Noise Injection:</span></div>
+          <div style="padding-left:20px;">η ~ N(0, σ²C²)  &nbsp;←&nbsp; sample calibrated Gaussian noise</div>
+          <div style="padding-left:20px;">W_dp = W_clipped + η  &nbsp;←&nbsp; add noise</div>
+          <div style="margin-top:6px;"><span style="color:var(--green);">OUTPUT:</span> W_dp sent to server instead of raw W</div>
+          <div style="margin-top:10px;color:var(--border);">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+          <div style="margin-top:6px;">
+            <span style="color:var(--silver);">Privacy guarantee:</span> (ε, δ)-Differential Privacy
+            &nbsp;|&nbsp; <span style="color:var(--silver);">Accuracy cost:</span> ~0.2% only
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="sec-title">Live Weight Transformation (Last Round)</div>
+        <div id="dp-live-panel">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);">
+            // DP weight snapshots will appear here after simulation runs.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── CLOCK ──
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-US', {hour12:false});
+}, 1000);
+
+// ── TABS ──
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── FILE UPLOAD ──
+let selectedFile = null;
+
+const ua = document.getElementById('upload-area');
+ua.addEventListener('dragover', e => { e.preventDefault(); ua.classList.add('over'); });
+ua.addEventListener('dragleave', () => ua.classList.remove('over'));
+ua.addEventListener('drop', e => {
+  e.preventDefault(); ua.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.csv')) setFile(f);
+});
+
+function onFileSelect(input) {
+  if (input.files[0]) setFile(input.files[0]);
+}
+
+function setFile(f) {
+  selectedFile = f;
+  document.getElementById('upload-area').innerHTML = `
+    <div class="upload-icon">✓</div>
+    <div class="upload-title" style="color:var(--green);">${f.name}</div>
+    <div class="upload-sub">${(f.size/1024).toFixed(1)} KB — Ready</div>`;
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('progress-label').textContent = 'File loaded. Click START to begin.';
+}
+
+// ── CLIENTS ──
+const CLASS_COLORS = ['#27AE60','#E67E22','#C0392B','#8E44AD','#2980B9','#F39C12'];
+
+function buildClients() {
+  const grid = document.getElementById('clients-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    grid.innerHTML += `
+      <div class="client-card" id="client-${i}">
+        <div class="client-id">CLIENT ${i+1}</div>
+        <div class="client-acc-val" id="cacc-${i}">—</div>
+        <div class="client-status" id="cstat-${i}">WAITING</div>
+      </div>`;
+  }
+}
+
+buildClients();
+
+// ── CHARTS ──
+const chartDefaults = {
+  responsive: true,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks:{color:'#44445A',font:{family:'Share Tech Mono',size:10}}, grid:{color:'#1A1A28'} },
+    y: { ticks:{color:'#44445A',font:{family:'Share Tech Mono',size:10}}, grid:{color:'#1A1A28'} }
+  }
+};
+
+const accChart = new Chart(document.getElementById('acc-chart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      data: [],
+      borderColor: '#27AE60',
+      backgroundColor: 'rgba(39,174,96,0.08)',
+      pointBackgroundColor: '#EEF0FF',
+      pointBorderColor: '#27AE60',
+      borderWidth: 2.5, tension: 0.3, fill: true
+    }]
+  },
+  options: { ...chartDefaults }
+});
+
+const lossChart = new Chart(document.getElementById('loss-chart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      data: [],
+      borderColor: '#C0392B',
+      backgroundColor: 'rgba(192,57,43,0.08)',
+      pointBackgroundColor: '#EEF0FF',
+      pointBorderColor: '#C0392B',
+      borderWidth: 2.5, tension: 0.3, fill: true
+    }]
+  },
+  options: { ...chartDefaults }
+});
+
+function updateCharts(accs, losses) {
+  const labels = accs.map((_,i) => `Round ${i+1}`);
+
+  accChart.data.labels = labels;
+  accChart.data.datasets[0].data = accs.map(a => (a*100).toFixed(2));
+  accChart.update();
+
+  lossChart.data.labels = labels;
+  lossChart.data.datasets[0].data = losses.map(l => l.toFixed(4));
+  lossChart.update();
+}
+
+// ── LOG ──
+let lastLogCount = 0;
+
+function appendLogs(logs) {
+  if (logs.length <= lastLogCount) return;
+  const box = document.getElementById('log-box');
+  const newLogs = logs.slice(lastLogCount);
+  newLogs.forEach(entry => {
+    const div = document.createElement('div');
+    div.className = 'log-line ' + entry.level;
+    div.textContent = `[${entry.time}] ${entry.msg}`;
+    box.appendChild(div);
+  });
+  box.scrollTop = box.scrollHeight;
+  lastLogCount = logs.length;
+}
+
+// ── SIMULATION ──
+let pollInterval = null;
+let simRunning   = false;
+
+async function startSim() {
+  if (!selectedFile || simRunning) return;
+
+  simRunning = true;
+  lastLogCount = 0;
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('live-dot').classList.add('active');
+  document.getElementById('live-label').textContent = 'RUNNING';
+  document.getElementById('done-banner').classList.remove('show');
+  document.getElementById('graphs-placeholder').textContent = '// Graphs will appear here after simulation completes.';
+  document.getElementById('graphs-grid').style.display = 'none';
+  document.getElementById('graphs-grid').innerHTML = '';
+  document.getElementById('log-box').innerHTML = '';
+
+  buildClients();
+  accChart.data.labels = [];
+  accChart.data.datasets[0].data = [];
+  accChart.update();
+  lossChart.data.labels = [];
+  lossChart.data.datasets[0].data = [];
+  lossChart.update();
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+
+  try {
+    const resp = await fetch('/api/start', { method:'POST', body: formData });
+    const data = await resp.json();
+    if (data.error) { alert('Error: ' + data.error); simRunning = false; return; }
+  } catch(e) {
+    alert('Failed to start: ' + e.message);
+    simRunning = false;
+    return;
+  }
+
+  pollInterval = setInterval(pollStatus, 1500);
+}
+
+async function pollStatus() {
+  try {
+    const resp = await fetch('/api/status');
+    const data = await resp.json();
+
+    appendLogs(data.log);
+    updateCharts(data.global_accs, data.global_losses);
+
+    // Round pips
+    for (let r = 1; r <= 3; r++) {
+      const pip = document.getElementById(`pip-${r}`);
+      if (r < data.round) pip.className = 'round-pip done';
+      else if (r === data.round) pip.className = 'round-pip active';
+      else pip.className = 'round-pip';
+    }
+
+    // Server stats
+    document.getElementById('stat-round').textContent = `${data.round}/3`;
+    if (data.global_accs.length > 0) {
+      const lastAcc  = data.global_accs[data.global_accs.length - 1];
+      const lastLoss = data.global_losses[data.global_losses.length - 1];
+      document.getElementById('server-acc').textContent  = (lastAcc * 100).toFixed(2) + '%';
+      document.getElementById('server-loss').textContent = `Loss: ${lastLoss.toFixed(4)}`;
+    }
+
+    // Client cards
+    let doneCount = 0;
+    for (let i = 0; i < 5; i++) {
+      const info = data.client_accs[i];
+      const card = document.getElementById(`client-${i}`);
+      const cacc = document.getElementById(`cacc-${i}`);
+      const cstat = document.getElementById(`cstat-${i}`);
+      if (!info) continue;
+      if (info.status === 'training') {
+        card.className = 'client-card training';
+        cacc.textContent = '...';
+        cstat.textContent = 'TRAINING';
+        cstat.style.color = 'var(--gold)';
+      } else if (info.status === 'done') {
+        card.className = 'client-card done';
+        cacc.textContent = info.acc + '%';
+        cstat.textContent = 'SENT DP WEIGHTS';
+        cstat.style.color = 'var(--green)';
+        doneCount++;
+      }
+    }
+    document.getElementById('stat-clients').textContent = `${doneCount}/5`;
+
+    // Progress
+    const totalSteps = 3 * 5;
+    const doneSteps  = Math.max(0, data.round - 1) * 5 + doneCount;
+    const pct = Math.min(100, Math.round(doneSteps / totalSteps * 100));
+    document.getElementById('overall-progress').style.width = pct + '%';
+    document.getElementById('progress-label').textContent =
+      data.running ? `Round ${data.round}/3 — ${doneCount}/5 clients done` :
+      data.done    ? 'Simulation complete!' : 'Processing...';
+
+    if (data.error) {
+      clearInterval(pollInterval);
+      simRunning = false;
+      document.getElementById('live-dot').classList.remove('active');
+      document.getElementById('live-label').textContent = 'ERROR';
+      alert('Simulation error: ' + data.error);
+      document.getElementById('start-btn').disabled = false;
+    }
+
+    if (data.done) {
+      clearInterval(pollInterval);
+      simRunning = false;
+      document.getElementById('live-dot').classList.remove('active');
+      document.getElementById('live-label').textContent = 'DONE';
+      document.getElementById('overall-progress').style.width = '100%';
+      document.getElementById('overall-progress').style.background = 'var(--green)';
+
+      // Mark all rounds done
+      for (let r = 1; r <= 3; r++) {
+        document.getElementById(`pip-${r}`).className = 'round-pip done';
+      }
+
+      // Load graphs
+      await loadGraphs(data);
+      document.getElementById('start-btn').disabled = false;
+    }
+
+  } catch(e) {
+    console.error('Poll error:', e);
+  }
+}
+
+async function loadGraphs(statusData) {
+  const resp = await fetch('/api/graphs');
+  const graphs = await resp.json();
+
+  const finalAcc  = statusData.global_accs[statusData.global_accs.length - 1];
+  const finalLoss = statusData.global_losses[statusData.global_losses.length - 1];
+
+  // Done banner
+  const banner = document.getElementById('done-banner');
+  banner.classList.add('show');
+  document.getElementById('done-sub').textContent =
+    `Final Accuracy: ${(finalAcc*100).toFixed(2)}% | Loss: ${finalLoss.toFixed(4)} | All 7 graphs ready`;
+  document.getElementById('done-stats').innerHTML = `
+    <div class="sstat"><div class="sstat-val" style="color:var(--green);">${(finalAcc*100).toFixed(2)}%</div><div class="sstat-label">ACCURACY</div></div>
+    <div class="sstat"><div class="sstat-val" style="color:var(--red2);">${finalLoss.toFixed(4)}</div><div class="sstat-label">FINAL LOSS</div></div>`;
+
+  // Graphs tab
+  const graphTitles = {
+    confusion_matrix: "Confusion Matrix",
+    convergence:      "FL Convergence Curve",
+    per_class:        "Per-Class Metrics",
+    client_accs:      "Client Accuracy History",
+    class_dist:       "Test Class Distribution",
+    dp_viz:           "Differential Privacy Visualization",
+    summary:          "Global Model Summary"
+  };
+
+  const grid = document.getElementById('graphs-grid');
+  grid.innerHTML = '';
+  grid.style.display = 'grid';
+  document.getElementById('graphs-placeholder').textContent = '';
+
+  Object.entries(graphs).forEach(([key, b64]) => {
+    const card = document.createElement('div');
+    card.className = 'graph-card';
+    card.innerHTML = `
+      <div class="graph-title">${graphTitles[key] || key}</div>
+      <img src="${b64}" alt="${key}">`;
+    grid.appendChild(card);
+  });
+
+  // DP panel
+  buildDPPanel(graphs);
+
+  // Switch to graphs tab
+  document.querySelectorAll('.tab')[1].click();
+}
+
+function buildDPPanel(graphs) {
+  const panel = document.getElementById('dp-live-panel');
+  if (graphs.dp_viz) {
+    panel.innerHTML = `
+      <img src="${graphs.dp_viz}" style="width:100%;border-radius:2px;" alt="DP Viz">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;">
+        Blue = Original weights &nbsp;|&nbsp; Orange = After clipping (norm ≤ 5.0) &nbsp;|&nbsp; Red = After Gaussian noise injection (σ=0.001)
+      </div>`;
+  }
+}
+
+function resetSim() {
+  if (pollInterval) clearInterval(pollInterval);
+  simRunning = false;
+  lastLogCount = 0;
+
+  document.getElementById('start-btn').disabled = !selectedFile;
+  document.getElementById('live-dot').classList.remove('active');
+  document.getElementById('live-label').textContent = 'IDLE';
+  document.getElementById('server-acc').textContent = '—';
+  document.getElementById('server-loss').textContent = 'Loss: —';
+  document.getElementById('stat-round').textContent = '0/3';
+  document.getElementById('stat-clients').textContent = '0/5';
+  document.getElementById('overall-progress').style.width = '0%';
+  document.getElementById('overall-progress').style.background = 'var(--red)';
+  document.getElementById('progress-label').textContent = 'File loaded. Click START to begin.';
+  document.getElementById('done-banner').classList.remove('show');
+
+  for (let r = 1; r <= 3; r++)
+    document.getElementById(`pip-${r}`).className = 'round-pip';
+
+  buildClients();
+
+  accChart.data.labels = [];
+  accChart.data.datasets[0].data = [];
+  accChart.update();
+  lossChart.data.labels = [];
+  lossChart.data.datasets[0].data = [];
+  lossChart.update();
+
+  document.getElementById('log-box').innerHTML =
+    '<div class="log-line info">// Reset complete. Ready to start again.</div>';
+
+  document.getElementById('graphs-placeholder').textContent =
+    '// Graphs will appear here after simulation completes.';
+  document.getElementById('graphs-grid').style.display = 'none';
+  document.getElementById('graphs-grid').innerHTML = '';
+}
+</script>
+</body>
+</html>

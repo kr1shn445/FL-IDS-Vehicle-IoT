@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FL-IDS Phase 2 — Intrusion Detection Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:       #060608;
+    --bg2:      #0D0D14;
+    --bg3:      #12121E;
+    --panel:    #16161F;
+    --red:      #C0392B;
+    --red2:     #E74C3C;
+    --red3:     #FF6B6B;
+    --silver:   #C8CCD8;
+    --muted:    #555570;
+    --white:    #F0F2FF;
+    --green:    #27AE60;
+    --orange:   #E67E22;
+    --purple:   #8E44AD;
+    --blue:     #2980B9;
+    --gold:     #F39C12;
+    --border:   #1E1E2E;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--silver);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 60px;
+    background: rgba(6,6,8,0.95);
+    border-bottom: 1px solid var(--red);
+    display: flex;
+    align-items: center;
+    padding: 0 32px;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--white);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--red); }
+
+  .header-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 60px; left: 0;
+    width: 220px;
+    height: calc(100vh - 60px);
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    z-index: 999;
+  }
+
+  .nav-section {
+    padding: 8px 20px 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .nav-item:hover { color: var(--silver); background: rgba(192,57,43,0.05); }
+  .nav-item.active {
+    color: var(--white);
+    border-left-color: var(--red);
+    background: rgba(192,57,43,0.1);
+  }
+
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  /* ── MAIN ── */
+  main {
+    margin-left: 220px;
+    margin-top: 60px;
+    padding: 32px;
+    min-height: calc(100vh - 60px);
+  }
+
+  .page { display: none; animation: fadeIn 0.3s ease; }
+  .page.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── PAGE TITLE ── */
+  .page-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .page-subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 28px;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--red);
+  }
+
+  .card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--red);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* ── GRID ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  /* ── STAT CARDS ── */
+  .stat-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card.green::after  { background: var(--green); }
+  .stat-card.red::after    { background: var(--red); }
+  .stat-card.blue::after   { background: var(--blue); }
+  .stat-card.gold::after   { background: var(--gold); }
+
+  .stat-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--white);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--muted);
+    border-radius: 2px;
+    padding: 48px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--bg3);
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--red);
+    background: rgba(192,57,43,0.05);
+  }
+
+  .upload-icon { font-size: 40px; margin-bottom: 12px; }
+
+  .upload-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--silver);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .upload-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── BUTTON ── */
+  .btn {
+    background: var(--red);
+    color: var(--white);
+    border: none;
+    padding: 12px 28px;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:hover { background: var(--red2); transform: translateY(-1px); }
+  .btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+  .btn-ghost:hover { background: rgba(192,57,43,0.1); }
+
+  /* ── TABLE ── */
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+
+  .results-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+
+  .results-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(30,30,46,0.5);
+    color: var(--silver);
+  }
+
+  .results-table tr:hover td { background: rgba(192,57,43,0.04); }
+
+  .class-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .conf-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .conf-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--green);
+    flex-shrink: 0;
+  }
+
+  /* ── PROGRESS ── */
+  .progress-wrap {
+    background: var(--bg3);
+    border-radius: 2px;
+    height: 6px;
+    overflow: hidden;
+    margin: 4px 0;
+  }
+
+  .progress-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+  }
+
+  /* ── FL SIMULATION ── */
+  .fl-canvas {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 32px;
+    min-height: 400px;
+    position: relative;
+  }
+
+  .server-box {
+    background: var(--bg2);
+    border: 2px solid var(--red);
+    border-radius: 2px;
+    padding: 16px 24px;
+    text-align: center;
+    width: 200px;
+    margin: 0 auto 40px;
+    position: relative;
+  }
+
+  .server-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: 2px;
+  }
+
+  .server-acc {
+    font-family: 'Orbitron', monospace;
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--white);
+    margin-top: 4px;
+  }
+
+  .clients-row {
+    display: flex;
+    justify-content: space-around;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .client-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 12px 16px;
+    text-align: center;
+    flex: 1;
+    transition: all 0.4s;
+    position: relative;
+  }
+
+  .client-box.active {
+    border-color: var(--gold);
+    background: rgba(243,156,18,0.05);
+  }
+
+  .client-box.sending {
+    border-color: var(--green);
+    background: rgba(39,174,96,0.05);
+  }
+
+  .client-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .client-acc {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--silver);
+  }
+
+  .round-indicator {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 20px 0;
+  }
+
+  .round-dot {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    transition: all 0.3s;
+  }
+
+  .round-dot.done { border-color: var(--green); color: var(--green); background: rgba(39,174,96,0.1); }
+  .round-dot.current { border-color: var(--gold); color: var(--gold); background: rgba(243,156,18,0.1); animation: pulse 1s infinite; }
+
+  .sim-log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px;
+    height: 160px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .sim-log .log-line { margin-bottom: 4px; }
+  .sim-log .log-line.green { color: var(--green); }
+  .sim-log .log-line.red   { color: var(--red2); }
+  .sim-log .log-line.gold  { color: var(--gold); }
+  .sim-log .log-line.white { color: var(--white); }
+
+  /* ── DP DEMO ── */
+  .dp-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .dp-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 60px;
+    color: var(--red);
+    font-size: 24px;
+  }
+
+  .dp-arrow span {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  .weight-display {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    min-height: 120px;
+  }
+
+  .weight-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(30,30,46,0.5);
+  }
+
+  .weight-key { color: var(--muted); }
+  .weight-val { color: var(--white); }
+  .weight-val.changed { color: var(--gold); }
+  .weight-val.noisy { color: var(--red2); }
+
+  /* ── IMAGES ── */
+  .result-img {
+    width: 100%;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+
+  /* ── RANGE SLIDER ── */
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--red);
+    cursor: pointer;
+  }
+
+  input[type=number], input[type=text] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--white);
+    padding: 8px 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    border-radius: 2px;
+    width: 100%;
+    outline: none;
+  }
+
+  input[type=number]:focus, input[type=text]:focus {
+    border-color: var(--red);
+  }
+
+  .form-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .form-group { margin-bottom: 16px; }
+
+  /* ── LOADING ── */
+  .loading {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin: 16px 0;
+  }
+
+  .loading.show { display: flex; }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ── COMPARISON TABLE ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .compare-table th {
+    padding: 12px 16px;
+    background: var(--bg3);
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--red);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--red);
+  }
+
+  .compare-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+
+  .compare-table tr:nth-child(even) td { background: rgba(13,13,20,0.5); }
+
+  .tag-better {
+    background: rgba(39,174,96,0.15);
+    color: var(--green);
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 10px;
+  }
+
+  .tag-worse {
+    background: rgba(192,57,43,0.15);
+    color: var(--red2);
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 10px;
+  }
+
+  .alert {
+    padding: 12px 16px;
+    border-left: 3px solid var(--red);
+    background: rgba(192,57,43,0.08);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--silver);
+    margin-bottom: 16px;
+  }
+
+  .alert.success {
+    border-left-color: var(--green);
+    background: rgba(39,174,96,0.08);
+    color: var(--green);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">FL<span>-</span>IDS <span style="color:var(--muted);font-size:12px;margin-left:12px;">PHASE 2</span></div>
+  <div class="header-status">
+    <span><span class="status-dot"></span>MODEL ONLINE</span>
+    <span style="color:var(--border)">|</span>
+    <span>6-CLASS MULTI-THREAT</span>
+    <span style="color:var(--border)">|</span>
+    <span id="clock" style="color:var(--red)"></span>
+  </div>
+</header>
+
+<nav>
+  <div class="nav-section">Navigation</div>
+  <div class="nav-item active" onclick="showPage('overview')">
+    <span class="nav-icon">⬡</span> Overview
+  </div>
+  <div class="nav-item" onclick="showPage('predict')">
+    <span class="nav-icon">⚡</span> Live Predict
+  </div>
+  <div class="nav-item" onclick="showPage('simulate')">
+    <span class="nav-icon">◎</span> FL Simulation
+  </div>
+  <div class="nav-item" onclick="showPage('dp')">
+    <span class="nav-icon">🔒</span> DP Demo
+  </div>
+  <div class="nav-section" style="margin-top:16px;">Results</div>
+  <div class="nav-item" onclick="showPage('metrics')">
+    <span class="nav-icon">▦</span> Metrics
+  </div>
+  <div class="nav-item" onclick="showPage('compare')">
+    <span class="nav-icon">⇄</span> Phase Compare
+  </div>
+  <div class="nav-item" onclick="showPage('graphs')">
+    <span class="nav-icon">◈</span> All Graphs
+  </div>
+</nav>
+
+<main>
+
+  <!-- ══ PAGE: OVERVIEW ══ -->
+  <div class="page active" id="page-overview">
+    <div class="page-title">System Overview</div>
+    <div class="page-subtitle">// FL-IDS PHASE 2 — FEDERATED LEARNING INTRUSION DETECTION SYSTEM</div>
+
+    <div class="grid-4" style="margin-bottom:24px;">
+      <div class="stat-card green">
+        <div class="stat-value" id="ov-acc">99.56%</div>
+        <div class="stat-label">Global Accuracy</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-value" id="ov-f1">99.32%</div>
+        <div class="stat-label">Macro F1 Score</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-value">5</div>
+        <div class="stat-label">FL Rounds</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-value">96</div>
+        <div class="stat-label">Features Used</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Architecture Pipeline</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:12px;line-height:2;">
+          <div style="color:var(--muted);">① <span style="color:var(--silver);">CIC-IDS2018 Dataset</span> — 6 attack classes</div>
+          <div style="color:var(--muted);">② <span style="color:var(--silver);">PCC Feature Selection</span> — 317 → 192 features</div>
+          <div style="color:var(--muted);">③ <span style="color:var(--silver);">Redundancy Pruning</span> — 192 → 96 features</div>
+          <div style="color:var(--muted);">④ <span style="color:var(--silver);">SMOTE Balancing</span> — 618K → 353K balanced</div>
+          <div style="color:var(--muted);">⑤ <span style="color:var(--silver);">Non-IID Dirichlet Split</span> — α=2.0, 5 clients</div>
+          <div style="color:var(--muted);">⑥ <span style="color:var(--silver);">1D-CNN Local Training</span> — 67,334 params</div>
+          <div style="color:var(--muted);">⑦ <span style="color:var(--silver);">FedAvg Aggregation</span> — 5 rounds</div>
+          <div style="color:var(--muted);">⑧ <span style="color:var(--red2);">Gaussian DP</span> — clip=10.0, σ=0.0001</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Class Performance</div>
+        <div id="class-perf-list">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">CNN Model Architecture</div>
+      <div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding-bottom:8px;">
+        <div id="arch-layers"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAGE: PREDICT ══ -->
+  <div class="page" id="page-predict">
+    <div class="page-title">Live Prediction</div>
+    <div class="page-subtitle">// UPLOAD NETWORK FLOW CSV → REAL-TIME THREAT CLASSIFICATION</div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Upload CSV File</div>
+        <div class="alert">
+          CSV must contain CIC-IDS2018 flow features. Each row = one network flow. Model will classify each flow into one of 6 threat classes.
+        </div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+          <div class="upload-icon">📂</div>
+          <div class="upload-text">DROP CSV FILE HERE</div>
+          <div class="upload-sub">or click to browse — supports up to 10,000 rows</div>
+        </div>
+        <input type="file" id="file-input" accept=".csv" style="display:none" onchange="handleFileSelect(this)">
+
+        <div style="margin-top:16px;display:flex;gap:12px;align-items:center;">
+          <button class="btn" id="predict-btn" onclick="runPrediction()" disabled>
+            ⚡ RUN PREDICTION
+          </button>
+          <div class="loading" id="predict-loading">
+            <div class="spinner"></div>
+            <span>Classifying flows...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Prediction Summary</div>
+        <canvas id="summary-chart" height="220"></canvas>
+        <div id="summary-stats" style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);text-align:center;">
+          No predictions yet
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="results-card" style="display:none;">
+      <div class="card-title">Prediction Results <span id="results-count" style="color:var(--muted);font-size:10px;"></span></div>
+      <div style="overflow-x:auto;">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Row</th>
+              <th>Prediction</th>
+              <th>Confidence</th>
+              <th>Benign</th>
+              <th>DoS</th>
+              <th>DDoS</th>
+              <th>Botnet</th>
+              <th>BruteForce</th>
+              <th>WebAttack</th>
+            </tr>
+          </thead>
+          <tbody id="results-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAGE: SIMULATE ══ -->
+  <div class="page" id="page-simulate">
+    <div class="page-title">FL Simulation</div>
+    <div class="page-subtitle">// FEDERATED AVERAGING — 5 NON-IID CLIENTS — ROUND BY ROUND</div>
+
+    <div class="card">
+      <div class="card-title">Federated Learning Rounds</div>
+      <div class="round-indicator" id="round-dots"></div>
+
+      <div class="fl-canvas">
+        <div class="server-box">
+          <div class="server-label">⬡ GLOBAL SERVER</div>
+          <div class="server-acc" id="server-acc">—</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;">FedAvg + Gaussian DP</div>
+        </div>
+
+        <div class="clients-row" id="clients-row"></div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;gap:12px;">
+        <button class="btn" onclick="startSimulation()">▶ START SIMULATION</button>
+        <button class="btn btn-ghost" onclick="resetSimulation()">↺ RESET</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Simulation Log</div>
+      <div class="sim-log" id="sim-log">
+        <div class="log-line">// Ready. Press START SIMULATION to begin.</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:4px;">
+      <div class="card">
+        <div class="card-title">Accuracy Per Round</div>
+        <canvas id="sim-acc-chart" height="200"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Loss Per Round</div>
+        <canvas id="sim-loss-chart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAGE: DP DEMO ══ -->
+  <div class="page" id="page-dp">
+    <div class="page-title">Differential Privacy Demo</div>
+    <div class="page-subtitle">// GAUSSIAN MECHANISM — WEIGHT CLIPPING + NOISE INJECTION</div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Parameters</div>
+
+        <div class="form-group">
+          <label class="form-label">Weight Values (comma-separated)</label>
+          <input type="text" id="dp-weights" value="0.85, -0.42, 1.23, 0.67, -0.91, 0.34, 1.56, -0.28, 0.73, -1.1">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Clip Norm (C) = <span id="clip-val">10.0</span></label>
+          <input type="range" id="clip-norm" min="0.1" max="20" step="0.1" value="10"
+                 oninput="document.getElementById('clip-val').textContent=parseFloat(this.value).toFixed(1)">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Noise Multiplier (σ) = <span id="noise-val">0.0001</span></label>
+          <input type="range" id="noise-mult" min="0.0001" max="0.5" step="0.0001" value="0.0001"
+                 oninput="document.getElementById('noise-val').textContent=parseFloat(this.value).toFixed(4)">
+        </div>
+
+        <button class="btn" onclick="runDPDemo()">🔒 APPLY DP MECHANISM</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Algorithm</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:2;color:var(--muted);">
+          <div><span style="color:var(--red);">INPUT:</span>  weights W, clip C, noise σ</div>
+          <div style="margin-top:8px;"><span style="color:var(--gold);">STEP 1</span> — Sensitivity Bounding:</div>
+          <div style="padding-left:16px;">norm = ||W||₂</div>
+          <div style="padding-left:16px;">if norm > C: W = W × (C / norm)</div>
+          <div style="margin-top:8px;"><span style="color:var(--gold);">STEP 2</span> — Noise Injection:</div>
+          <div style="padding-left:16px;">η ~ N(0, σ²C²)</div>
+          <div style="padding-left:16px;">W_dp = W_clipped + η</div>
+          <div style="margin-top:8px;"><span style="color:var(--green);">OUTPUT:</span> W_dp → sent to server</div>
+          <div style="margin-top:12px;color:var(--border);">━━━━━━━━━━━━━━━━━━━━━━━</div>
+          <div style="margin-top:8px;"><span style="color:var(--silver);">Privacy:</span> (ε,δ)-DP guaranteed</div>
+          <div><span style="color:var(--silver);">Our config:</span> C=10.0, σ=0.0001</div>
+          <div><span style="color:var(--silver);">Accuracy loss:</span> ~0.21% only</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="dp-results" style="display:none;">
+      <div class="card-title">Weight Transformation</div>
+      <div class="dp-grid">
+        <div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">ORIGINAL WEIGHTS</div>
+          <div class="weight-display" id="dp-original"></div>
+          <div style="margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);">
+            L2 Norm: <span id="dp-orig-norm" style="color:var(--silver);"></span>
+          </div>
+        </div>
+        <div class="dp-arrow">→<span>DP</span></div>
+        <div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--red2);letter-spacing:2px;margin-bottom:8px;">DP-NOISED WEIGHTS</div>
+          <div class="weight-display" id="dp-output"></div>
+          <div style="margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);">
+            L2 Norm after clip: <span id="dp-clip-norm" style="color:var(--gold);"></span> |
+            Noise σ: <span id="dp-noise-std" style="color:var(--red2);"></span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">NOISE VISUALIZATION</div>
+        <canvas id="dp-chart" height="100"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAGE: METRICS ══ -->
+  <div class="page" id="page-metrics">
+    <div class="page-title">Model Metrics</div>
+    <div class="page-subtitle">// GLOBAL MODEL EVALUATION — POST FL TRAINING WITH DIFFERENTIAL PRIVACY</div>
+
+    <div class="grid-4" style="margin-bottom:24px;">
+      <div class="stat-card green">
+        <div class="stat-value">99.56%</div>
+        <div class="stat-label">Accuracy</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-value">99.32%</div>
+        <div class="stat-label">Macro F1</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-value">99.33%</div>
+        <div class="stat-label">Precision</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-value">99.32%</div>
+        <div class="stat-label">Recall</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Per-Class F1 Score</div>
+        <canvas id="f1-chart" height="220"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Per-Class Breakdown</div>
+        <table class="compare-table">
+          <thead>
+            <tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th></tr>
+          </thead>
+          <tbody>
+            <tr><td style="color:#27AE60;">Benign</td><td>99.98%</td><td>99.98%</td><td>99.98%</td></tr>
+            <tr><td style="color:#E67E22;">DoS</td><td>100.0%</td><td>100.0%</td><td>100.0%</td></tr>
+            <tr><td style="color:#C0392B;">DDoS</td><td>100.0%</td><td>99.99%</td><td>100.0%</td></tr>
+            <tr><td style="color:#8E44AD;">Botnet</td><td>99.99%</td><td>99.98%</td><td>99.99%</td></tr>
+            <tr><td style="color:#2980B9;">BruteForce</td><td>96.75%</td><td>99.28%</td><td>98.00%</td></tr>
+            <tr><td style="color:#F39C12;">WebAttack</td><td>99.24%</td><td>96.66%</td><td>97.93%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAGE: COMPARE ══ -->
+  <div class="page" id="page-compare">
+    <div class="page-title">Phase 1 vs Phase 2</div>
+    <div class="page-subtitle">// BINARY CLASSIFICATION VS MULTI-CLASS INTRUSION DETECTION</div>
+
+    <div class="grid-2" style="margin-bottom:24px;">
+      <div class="stat-card" style="border-bottom:2px solid var(--muted);">
+        <div class="stat-value" style="color:var(--muted);">93.4%</div>
+        <div class="stat-label">Phase 1 FL Accuracy</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-value">99.56%</div>
+        <div class="stat-label">Phase 2 FL Accuracy <span class="tag-better">+6.16%</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Detailed Comparison</div>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th>Phase 1</th>
+            <th>Phase 2</th>
+            <th>Improvement</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Classification Type</td>
+            <td>Binary (Benign vs Attack)</td>
+            <td>Multi-Class (6 classes)</td>
+            <td><span class="tag-better">More Granular</span></td>
+          </tr>
+          <tr>
+            <td>FL Accuracy</td>
+            <td>93.4%</td>
+            <td>99.56%</td>
+            <td><span class="tag-better">+6.16%</span></td>
+          </tr>
+          <tr>
+            <td>Model Type</td>
+            <td>Logistic Regression</td>
+            <td>1D-CNN (67K params)</td>
+            <td><span class="tag-better">Deep Learning</span></td>
+          </tr>
+          <tr>
+            <td>Features</td>
+            <td>156 (PCC only)</td>
+            <td>96 (PCC + Redundancy)</td>
+            <td><span class="tag-better">More Refined</span></td>
+          </tr>
+          <tr>
+            <td>Data Distribution</td>
+            <td>IID split</td>
+            <td>Non-IID Dirichlet α=2.0</td>
+            <td><span class="tag-better">More Realistic</span></td>
+          </tr>
+          <tr>
+            <td>Privacy</td>
+            <td>None</td>
+            <td>Gaussian DP (σ=0.0001)</td>
+            <td><span class="tag-better">Privacy-Preserving</span></td>
+          </tr>
+          <tr>
+            <td>Classes Detected</td>
+            <td>1 (generic Attack)</td>
+            <td>5 (DoS, DDoS, Botnet, BruteForce, WebAttack)</td>
+            <td><span class="tag-better">5× More</span></td>
+          </tr>
+          <tr>
+            <td>FL Rounds</td>
+            <td>5</td>
+            <td>5</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>FL Clients</td>
+            <td>5</td>
+            <td>5</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Accuracy Comparison Chart</div>
+      <canvas id="compare-chart" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- ══ PAGE: GRAPHS ══ -->
+  <div class="page" id="page-graphs">
+    <div class="page-title">All Visualizations</div>
+    <div class="page-subtitle">// COMPLETE RESULT GRAPHS — READY FOR PRESENTATION</div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">PCC Feature Importance (Top 30)</div>
+        <img src="/static/images/pcc_feature_importance.png" class="result-img" alt="PCC Feature Importance">
+      </div>
+      <div class="card">
+        <div class="card-title">Feature Correlation Heatmap</div>
+        <img src="/static/images/pcc_heatmap.png" class="result-img" alt="Correlation Heatmap">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Class Distribution — Before SMOTE</div>
+        <img src="/static/images/class_distribution_before_smote.png" class="result-img" alt="Before SMOTE">
+      </div>
+      <div class="card">
+        <div class="card-title">Class Distribution — After SMOTE</div>
+        <img src="/static/images/class_distribution_after_smote.png" class="result-img" alt="After SMOTE">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">FL Convergence Curve</div>
+      <img src="/static/images/fl_convergence_curve.png" class="result-img" alt="FL Convergence">
+    </div>
+
+    <div class="card">
+      <div class="card-title">Confusion Matrix (6×6)</div>
+      <img src="/static/images/confusion_matrix.png" class="result-img" alt="Confusion Matrix">
+    </div>
+
+    <div class="card">
+      <div class="card-title">Per-Class Precision / Recall / F1</div>
+      <img src="/static/images/per_class_metrics.png" class="result-img" alt="Per Class Metrics">
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-US', {hour12: false});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── NAVIGATION ──
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+
+  if (name === 'simulate') initSimCharts();
+  if (name === 'metrics')  initMetricsCharts();
+  if (name === 'compare')  initCompareChart();
+}
+
+// ── LOAD RESULTS ──
+const CLASS_NAMES  = ['Benign','DoS','DDoS','Botnet','BruteForce','WebAttack'];
+const CLASS_COLORS = ['#27AE60','#E67E22','#C0392B','#8E44AD','#2980B9','#F39C12'];
+
+let phase2Data = null;
+
+fetch('/api/results').then(r => r.json()).then(data => {
+  phase2Data = data;
+
+  document.getElementById('ov-acc').textContent = (data.final_accuracy * 100).toFixed(2) + '%';
+  document.getElementById('ov-f1').textContent  = (data.macro_f1 * 100).toFixed(2) + '%';
+
+  const list = document.getElementById('class-perf-list');
+  list.innerHTML = '';
+  CLASS_NAMES.forEach((name, i) => {
+    const f1 = (data.per_class_f1[name] * 100).toFixed(2);
+    list.innerHTML += `
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:11px;margin-bottom:4px;">
+          <span style="color:${CLASS_COLORS[i]};">${name}</span>
+          <span style="color:var(--white);">${f1}%</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar" style="width:${f1}%;background:${CLASS_COLORS[i]};"></div>
+        </div>
+      </div>`;
+  });
+
+  buildArchDiagram();
+});
+
+// ── CNN ARCH DIAGRAM ──
+function buildArchDiagram() {
+  const layers = [
+    { name:'Input\n96', color:'#555570', w:60 },
+    { name:'Reshape\n96×1', color:'#2980B9', w:70 },
+    { name:'Conv1D\n64 filters', color:'#C0392B', w:80 },
+    { name:'BatchNorm\n+ReLU', color:'#8E44AD', w:80 },
+    { name:'MaxPool\n48×64', color:'#2980B9', w:70 },
+    { name:'Conv1D\n128 filters', color:'#C0392B', w:85 },
+    { name:'BatchNorm\n+ReLU', color:'#8E44AD', w:80 },
+    { name:'MaxPool\n24×128', color:'#2980B9', w:70 },
+    { name:'GlobalAvgPool\n64-d', color:'#E67E22', w:90 },
+    { name:'Dense\n128', color:'#27AE60', w:65 },
+    { name:'Dense\n64', color:'#27AE60', w:60 },
+    { name:'Softmax\n6 classes', color:'#F39C12', w:85 },
+  ];
+
+  const container = document.getElementById('arch-layers');
+  container.style.display = 'flex';
+  container.style.alignItems = 'center';
+  container.style.gap = '0';
+
+  layers.forEach((l, i) => {
+    const box = document.createElement('div');
+    box.style.cssText = `
+      background:${l.color}22;border:1px solid ${l.color};
+      border-radius:2px;padding:8px;text-align:center;
+      min-width:${l.w}px;flex-shrink:0;
+      font-family:'Share Tech Mono',monospace;font-size:9px;
+      color:${l.color};line-height:1.4;white-space:pre-line;
+    `;
+    box.textContent = l.name;
+    container.appendChild(box);
+
+    if (i < layers.length - 1) {
+      const arrow = document.createElement('div');
+      arrow.style.cssText = 'color:#333355;font-size:16px;flex-shrink:0;padding:0 2px;';
+      arrow.textContent = '→';
+      container.appendChild(arrow);
+    }
+  });
+}
+
+// ── FILE UPLOAD ──
+let selectedFile = null;
+
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) setFile(file);
+});
+
+function handleFileSelect(input) {
+  if (input.files[0]) setFile(input.files[0]);
+}
+
+function setFile(file) {
+  selectedFile = file;
+  document.getElementById('upload-zone').innerHTML = `
+    <div class="upload-icon">✓</div>
+    <div class="upload-text">${file.name}</div>
+    <div class="upload-sub">${(file.size/1024).toFixed(1)} KB — Ready to predict</div>
+  `;
+  document.getElementById('predict-btn').disabled = false;
+}
+
+// ── PREDICTION ──
+let summaryChart = null;
+
+async function runPrediction() {
+  if (!selectedFile) return;
+
+  document.getElementById('predict-btn').disabled = true;
+  document.getElementById('predict-loading').classList.add('show');
+  document.getElementById('results-card').style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+
+  try {
+    const resp = await fetch('/api/predict', { method:'POST', body: formData });
+    const data = await resp.json();
+
+    if (data.error) {
+      alert('Error: ' + data.error);
+      return;
+    }
+
+    // Summary chart
+    const ctx = document.getElementById('summary-chart').getContext('2d');
+    if (summaryChart) summaryChart.destroy();
+    summaryChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: CLASS_NAMES,
+        datasets: [{
+          data: CLASS_NAMES.map(n => data.summary[n] || 0),
+          backgroundColor: CLASS_COLORS,
+          borderColor: '#060608',
+          borderWidth: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            labels: { color: '#C8CCD8', font: { family: 'Share Tech Mono', size: 11 } }
+          }
+        }
+      }
+    });
+
+    // Stats
+    const dominant = Object.entries(data.summary).sort((a,b)=>b[1]-a[1])[0];
+    document.getElementById('summary-stats').innerHTML =
+      `Total flows: <span style="color:var(--white);">${data.total}</span> &nbsp;|&nbsp; ` +
+      `Dominant: <span style="color:var(--red2);">${dominant[0]} (${dominant[1]})</span>`;
+
+    // Table
+    const tbody = document.getElementById('results-tbody');
+    tbody.innerHTML = '';
+    data.results.forEach(r => {
+      const ci = CLASS_NAMES.indexOf(r.prediction);
+      const color = CLASS_COLORS[ci];
+      const confWidth = Math.round(r.confidence);
+      tbody.innerHTML += `
+        <tr>
+          <td style="color:var(--muted);">#${r.row}</td>
+          <td><span class="class-badge" style="background:${color}22;color:${color};">${r.prediction}</span></td>
+          <td>
+            <div class="conf-bar-wrap">
+              <div class="conf-bar" style="width:${confWidth}px;background:${color};"></div>
+              <span style="color:var(--white);font-family:'Share Tech Mono',monospace;font-size:11px;">${r.confidence}%</span>
+            </div>
+          </td>
+          ${CLASS_NAMES.map(n => `<td style="color:var(--muted);">${r.all_probs[n].toFixed(1)}%</td>`).join('')}
+        </tr>`;
+    });
+
+    document.getElementById('results-count').textContent =
+      `(showing ${Math.min(data.results.length, 200)} of ${data.total})`;
+    document.getElementById('results-card').style.display = 'block';
+
+  } catch (e) {
+    alert('Prediction failed: ' + e.message);
+  } finally {
+    document.getElementById('predict-btn').disabled = false;
+    document.getElementById('predict-loading').classList.remove('show');
+  }
+}
+
+// ── FL SIMULATION ──
+let simData = null;
+let simRunning = false;
+let simAccChart = null;
+let simLossChart = null;
+
+async function initSimCharts() {
+  if (simData) return;
+  const resp = await fetch('/api/simulate_fl');
+  simData = await resp.json();
+
+  // Build client boxes
+  const row = document.getElementById('clients-row');
+  row.innerHTML = '';
+  for (let i = 0; i < simData.num_clients; i++) {
+    row.innerHTML += `
+      <div class="client-box" id="client-${i}">
+        <div class="client-label">CLIENT ${i+1}</div>
+        <div class="client-acc" id="client-acc-${i}">—</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:3px;" id="client-status-${i}">WAITING</div>
+      </div>`;
+  }
+
+  // Build round dots
+  const dots = document.getElementById('round-dots');
+  dots.innerHTML = '';
+  for (let i = 1; i <= simData.num_rounds; i++) {
+    dots.innerHTML += `<div class="round-dot" id="rdot-${i}">${i}</div>`;
+  }
+
+  // Charts
+  const chartOpts = {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color:'#555570', font:{family:'Share Tech Mono',size:10} }, grid:{color:'#1E1E2E'} },
+      y: { ticks: { color:'#555570', font:{family:'Share Tech Mono',size:10} }, grid:{color:'#1E1E2E'} }
+    }
+  };
+
+  const accCtx = document.getElementById('sim-acc-chart').getContext('2d');
+  simAccChart = new Chart(accCtx, {
+    type: 'line',
+    data: {
+      labels: simData.rounds.map(r => `R${r.round}`),
+      datasets: [{
+        data: simData.rounds.map(r => r.accuracy),
+        borderColor: '#27AE60', backgroundColor: 'rgba(39,174,96,0.1)',
+        pointBackgroundColor: '#F0F2FF', pointBorderColor: '#27AE60',
+        borderWidth: 2, tension: 0.3, fill: true
+      }]
+    },
+    options: { ...chartOpts }
+  });
+
+  const lossCtx = document.getElementById('sim-loss-chart').getContext('2d');
+  simLossChart = new Chart(lossCtx, {
+    type: 'line',
+    data: {
+      labels: simData.rounds.map(r => `R${r.round}`),
+      datasets: [{
+        data: simData.rounds.map(r => r.loss),
+        borderColor: '#C0392B', backgroundColor: 'rgba(192,57,43,0.1)',
+        pointBackgroundColor: '#F0F2FF', pointBorderColor: '#C0392B',
+        borderWidth: 2, tension: 0.3, fill: true
+      }]
+    },
+    options: { ...chartOpts }
+  });
+}
+
+function addLog(text, cls='') {
+  const log = document.getElementById('sim-log');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + cls;
+  line.textContent = `[${new Date().toLocaleTimeString('en-US',{hour12:false})}] ${text}`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startSimulation() {
+  if (simRunning || !simData) return;
+  simRunning = true;
+  resetSimulation(true);
+
+  addLog('Initializing FL system...', 'white');
+  addLog(`Clients: ${simData.num_clients} | Rounds: ${simData.num_rounds}`, 'gold');
+  await sleep(600);
+
+  for (let ri = 0; ri < simData.rounds.length; ri++) {
+    const round = simData.rounds[ri];
+    document.getElementById(`rdot-${ri+1}`).className = 'round-dot current';
+    addLog(`━━ ROUND ${round.round}/${simData.num_rounds} ━━`, 'red');
+    await sleep(400);
+
+    addLog('Server broadcasting global weights to clients...', '');
+    await sleep(500);
+
+    // Clients training
+    for (let ci = 0; ci < simData.num_clients; ci++) {
+      const box = document.getElementById(`client-${ci}`);
+      const st  = document.getElementById(`client-status-${ci}`);
+      box.className = 'client-box active';
+      st.textContent = 'TRAINING...';
+      st.style.color = 'var(--gold)';
+      await sleep(300);
+      box.className = 'client-box sending';
+      st.textContent = 'SENDING DP WEIGHTS';
+      st.style.color = 'var(--green)';
+      document.getElementById(`client-acc-${ci}`).textContent =
+        round.clients[ci].acc.toFixed(2) + '%';
+      addLog(`  Client ${ci+1} → local acc: ${round.clients[ci].acc.toFixed(2)}% | DP noise applied`, 'green');
+      await sleep(250);
+    }
+
+    addLog('Server aggregating with FedAvg...', 'gold');
+    await sleep(600);
+
+    document.getElementById('server-acc').textContent = round.accuracy.toFixed(2) + '%';
+    addLog(`▶ Global accuracy after Round ${round.round}: ${round.accuracy}%`, 'white');
+
+    document.getElementById(`rdot-${ri+1}`).className = 'round-dot done';
+
+    // Reset clients
+    for (let ci = 0; ci < simData.num_clients; ci++) {
+      document.getElementById(`client-${ci}`).className = 'client-box';
+      document.getElementById(`client-status-${ci}`).textContent = 'WAITING';
+      document.getElementById(`client-status-${ci}`).style.color = 'var(--muted)';
+    }
+    await sleep(400);
+  }
+
+  addLog(`✓ Training complete! Final accuracy: ${simData.final_acc}% | Macro F1: ${simData.macro_f1}%`, 'green');
+  simRunning = false;
+}
+
+function resetSimulation(keepLog=false) {
+  document.getElementById('server-acc').textContent = '—';
+  for (let i = 0; i < 5; i++) {
+    const box = document.getElementById(`client-${i}`);
+    if (box) {
+      box.className = 'client-box';
+      document.getElementById(`client-acc-${i}`).textContent = '—';
+      document.getElementById(`client-status-${i}`).textContent = 'WAITING';
+      document.getElementById(`client-status-${i}`).style.color = 'var(--muted)';
+    }
+  }
+  for (let i = 1; i <= 5; i++) {
+    const dot = document.getElementById(`rdot-${i}`);
+    if (dot) dot.className = 'round-dot';
+  }
+  if (!keepLog) {
+    document.getElementById('sim-log').innerHTML =
+      '<div class="log-line">// Ready. Press START SIMULATION to begin.</div>';
+  }
+  simRunning = false;
+}
+
+// ── DP DEMO ──
+let dpChart = null;
+
+async function runDPDemo() {
+  const rawWeights = document.getElementById('dp-weights').value
+    .split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+  const clipNorm  = parseFloat(document.getElementById('clip-norm').value);
+  const noiseMult = parseFloat(document.getElementById('noise-mult').value);
+
+  const resp = await fetch('/api/dp_demo', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ weights: rawWeights, clip_norm: clipNorm, noise_multiplier: noiseMult })
+  });
+  const data = await resp.json();
+
+  // Original
+  const origDiv = document.getElementById('dp-original');
+  origDiv.innerHTML = data.original.map((v,i) =>
+    `<div class="weight-item">
+      <span class="weight-key">w[${i}]</span>
+      <span class="weight-val">${v.toFixed(5)}</span>
+    </div>`).join('');
+
+  // DP output
+  const outDiv = document.getElementById('dp-output');
+  outDiv.innerHTML = data.dp_weights.map((v,i) => {
+    const changed = Math.abs(v - data.original[i]) > 0.0001;
+    return `<div class="weight-item">
+      <span class="weight-key">w[${i}]</span>
+      <span class="weight-val ${changed ? 'noisy' : ''}">${v.toFixed(5)}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('dp-orig-norm').textContent = data.original_norm;
+  document.getElementById('dp-clip-norm').textContent = data.clipped_norm;
+  document.getElementById('dp-noise-std').textContent = data.noise_std;
+
+  // Noise chart
+  const ctx = document.getElementById('dp-chart').getContext('2d');
+  if (dpChart) dpChart.destroy();
+  dpChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.noise.map((_,i) => `w[${i}]`),
+      datasets: [
+        { label:'Original', data: data.original, backgroundColor:'rgba(41,128,185,0.6)', borderColor:'#2980B9', borderWidth:1 },
+        { label:'DP Noised', data: data.dp_weights, backgroundColor:'rgba(192,57,43,0.6)', borderColor:'#C0392B', borderWidth:1 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color:'#C8CCD8', font:{family:'Share Tech Mono',size:10} } } },
+      scales: {
+        x: { ticks:{color:'#555570',font:{family:'Share Tech Mono',size:9}}, grid:{color:'#1E1E2E'} },
+        y: { ticks:{color:'#555570',font:{family:'Share Tech Mono',size:9}}, grid:{color:'#1E1E2E'} }
+      }
+    }
+  });
+
+  document.getElementById('dp-results').style.display = 'block';
+}
+
+// ── METRICS CHARTS ──
+function initMetricsCharts() {
+  const ctx = document.getElementById('f1-chart').getContext('2d');
+  const f1Scores = [99.98, 100.0, 100.0, 99.99, 98.00, 97.93];
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: CLASS_NAMES,
+      datasets: [{
+        data: f1Scores,
+        backgroundColor: CLASS_COLORS.map(c => c + '99'),
+        borderColor: CLASS_COLORS,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend:{display:false} },
+      scales: {
+        x: { ticks:{color:'#C8CCD8',font:{family:'Share Tech Mono',size:10}}, grid:{color:'#1E1E2E'} },
+        y: { min:95, max:101, ticks:{color:'#555570',font:{family:'Share Tech Mono',size:10}}, grid:{color:'#1E1E2E'} }
+      }
+    }
+  });
+}
+
+// ── COMPARE CHART ──
+function initCompareChart() {
+  const ctx = document.getElementById('compare-chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Phase 1 (Binary FL)', 'Phase 2 (Multi-Class FL + DP)'],
+      datasets: [{
+        label: 'FL Accuracy (%)',
+        data: [93.4, 99.56],
+        backgroundColor: ['rgba(85,85,112,0.5)', 'rgba(192,57,43,0.5)'],
+        borderColor: ['#555570', '#C0392B'],
+        borderWidth: 2
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { labels:{color:'#C8CCD8',font:{family:'Share Tech Mono',size:11}} }
+      },
+      scales: {
+        x: { min:85, max:101, ticks:{color:'#555570',font:{family:'Share Tech Mono',size:10}}, grid:{color:'#1E1E2E'} },
+        y: { ticks:{color:'#C8CCD8',font:{family:'Share Tech Mono',size:11}}, grid:{color:'#1E1E2E'} }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
