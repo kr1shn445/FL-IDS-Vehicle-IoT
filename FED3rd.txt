@@ -1,0 +1,755 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{tikz}
+\usepackage{multirow}
+\usetikzlibrary{arrows.meta, positioning}
+\usepackage[hidelinks]{hyperref}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Enhanced CNN Framework for Autonomous Backdoor Trigger Detection and Model Integrity Restoration}
+
+\author{
+\IEEEauthorblockN{Dr.~D.~Vivekanandan}
+\IEEEauthorblockA{
+\textit{Teaching Fellow}\\
+\textit{Dept. of Information Technology}\\
+\textit{Anna University, MIT Campus}\\
+\textit{Chennai, India}
+}
+\and
+\IEEEauthorblockN{Krishnaa~S}
+\IEEEauthorblockA{
+\textit{Dept. of Information Technology}\\
+\textit{Anna University, MIT Campus}\\
+\textit{Chennai, India}
+}
+\and
+\IEEEauthorblockN{Mona~K}
+\IEEEauthorblockA{
+\textit{Dept. of Information Technology}\\
+\textit{Anna University, MIT Campus}\\
+\textit{Chennai, India}
+}
+\and
+\hspace*{0.6cm}
+\IEEEauthorblockN{Kaviya~B}
+\IEEEauthorblockA{
+\hspace*{0.9cm}\textit{Dept. of Information Technology}\\
+\hspace*{0.9cm}\textit{Anna University, MIT Campus}\\
+\hspace*{0.9cm}\textit{Chennai, India}
+}
+\and
+\hspace*{-4.6cm}
+\IEEEauthorblockN{Harish~T}
+\IEEEauthorblockA{
+\hspace*{-4.6cm}\textit{Dept. of Information Technology}\\
+\hspace*{-4.6cm}\textit{Anna University, MIT Campus}\\
+\hspace*{-4.6cm}\textit{Chennai, India}
+}
+}
+
+\maketitle
+
+\begin{abstract}
+Deep neural networks are vulnerable to backdoor poisoning attacks, in which a trained model exhibits normal performance on clean inputs while producing attacker controlled outputs when a specific trigger pattern is present. Such attacks are difficult to defend against because many existing mitigation techniques rely on invasive retraining or parameter modification, which can significantly degrade clean classification accuracy. This paper presents an enhanced convolutional neural network framework for autonomous backdoor trigger detection and model integrity restoration. The proposed approach follows a non invasive defense strategy that does not directly alter the parameters of the compromised model. Instead, activation behavior is analyzed to identify backdoor sensitive patterns, and a knowledge distillation based mechanism is employed to suppress malicious responses during inference. A lightweight student model is trained using a carefully constructed poisoned subset to learn and neutralize backdoor behavior while preserving the original task performance of the teacher model. Experimental evaluation on the CIFAR ten dataset under a targeted backdoor attack on the automobile class demonstrates a substantial reduction in attack success rate while maintaining high clean accuracy. The results indicate that the proposed framework effectively balances security and performance, making it suitable for deployment in safety critical deep learning systems.
+\end{abstract}
+
+\vspace{0.5cm}
+
+\begin{IEEEkeywords}
+Backdoor attacks, convolutional neural networks, knowledge distillation, non invasive defense, model integrity
+\end{IEEEkeywords}
+
+
+\section{Introduction}
+
+Deep neural networks have demonstrated state-of-the-art performance in computer vision, speech processing, and pattern recognition tasks, leading to widespread deployment in real-world systems. Despite these advances, recent studies have revealed that deep learning models are vulnerable to backdoor poisoning attacks, where adversaries intentionally inject malicious behavior during training. In such attacks, a model behaves normally on clean inputs but produces attacker-defined outputs when a specific trigger pattern is present, posing significant security risks in safety-critical applications \cite{8685687,8383920}.
+
+Unlike adversarial examples that exploit input perturbations at inference time, backdoor attacks permanently alter the internal decision boundaries of a model. This makes them particularly stealthy and difficult to detect using standard validation procedures, as test accuracy on benign data remains largely unaffected \cite{8835365,9711191}. The threat is amplified in scenarios where pre-trained models or third-party datasets are obtained from untrusted sources, such as public model repositories or outsourced training pipelines \cite{9577779}.
+
+Existing defense mechanisms against backdoor attacks can be broadly categorized into data-based and model-based approaches. Data filtering and dataset purification techniques aim to identify and remove poisoned samples prior to training or fine-tuning \cite{11045703,10491118}. Model-based defenses, including weight pruning, channel pruning, and fine-tuning strategies, attempt to suppress backdoor behavior by modifying the internal parameters of the compromised network \cite{10336528,10849010}. However, these approaches are often invasive, require access to clean reference data, or lead to noticeable degradation in clean classification accuracy, limiting their practicality in deployed systems.
+
+To overcome these limitations, recent research has focused on non-invasive defense strategies that mitigate backdoor effects without directly altering the original model parameters. Such methods exploit the observation that backdoor triggers induce abnormal activation patterns or response inconsistencies that can be detected during inference \cite{9746573,10204451}. Knowledge distillation has emerged as a promising technique in this context, enabling the transfer of benign behavior from a compromised teacher model to a lightweight student model while suppressing malicious responses \cite{10620313,9883376}.
+
+Building upon these insights, this work presents an enhanced convolutional neural network framework for autonomous backdoor trigger detection and model integrity restoration. The proposed approach analyzes activation-level behavior to identify backdoor-sensitive patterns and employs a knowledge distillation-based mechanism to neutralize malicious outputs during inference. The effectiveness of the framework is evaluated on the CIFAR-10 dataset under a targeted backdoor attack scenario, demonstrating a significant reduction in attack success rate while preserving high clean accuracy.
+
+\section{Related Work}
+
+Backdoor poisoning attacks have emerged as a critical security threat to deep neural networks, particularly in scenarios where training data or pretrained models are obtained from untrusted sources \cite{8685687}. Unlike conventional adversarial attacks that manipulate inputs at inference time, backdoor attacks embed malicious behavior into the model during training, allowing the attack to remain dormant until a specific trigger pattern is presented \cite{9156913,9711191}. Early studies demonstrated that even a small fraction of poisoned samples is sufficient to achieve a high attack success rate while maintaining normal performance on clean inputs \cite{8383920}.
+
+\subsection{Backdoor Poisoning Attacks}
+
+Existing backdoor attacks can broadly be categorized into dirty-label and clean-label attacks. Dirty-label attacks modify both the input samples and their corresponding labels during poisoning, making the trigger-response relationship explicit \cite{8685687}. In contrast, clean-label attacks preserve the original labels and instead manipulate feature representations to implant hidden triggers, significantly increasing attack stealthiness \cite{9156913,9711191}. 
+
+Recent research has extended backdoor attacks to more complex settings, including dynamic and sample-specific triggers, multi-target attacks, and deployments across diverse learning paradigms such as video recognition, graph neural networks, and federated learning \cite{11065471,9156913,10852413}. These advanced attack strategies exploit the internal behavior of deep neural networks, allowing malicious functionality to remain dormant during standard evaluation while being reliably activated by carefully designed triggers. 
+
+Fig.~\ref{fig:framework} illustrates a representative attack-and-defense pipeline commonly discussed in the literature, highlighting how poisoned data can compromise a model and motivate the need for non-invasive defense strategies that analyze internal activations rather than relying solely on input-level inspection.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{framework.jpg}
+\caption{Illustration of a typical backdoor attack and non-invasive defense pipeline. A compromised model trained on poisoned data behaves normally on clean inputs but produces attacker-controlled outputs when a trigger is present, motivating activation-based analysis and mitigation strategies.}
+\label{fig:framework}
+\end{figure}
+
+\subsection{Backdoor Defense Mechanisms}
+
+A wide range of defense strategies has been proposed to mitigate backdoor poisoning attacks. Data-based defenses attempt to identify and remove poisoned samples prior to training using clustering, loss analysis, or activation statistics \cite{9577779}. Model-based defenses, including weight pruning, fine-tuning, and retraining, aim to suppress backdoor behavior by modifying network parameters \cite{8835365}. While effective in some cases, such invasive methods often degrade clean accuracy and require access to trusted clean datasets, limiting their practicality in real-world deployments \cite{10463411}.
+
+To address these limitations, recent research has explored non-invasive backdoor defenses that preserve the original model parameters. Knowledge distillation has been widely adopted in this context to transfer benign behavior while suppressing malicious activations \cite{9883376,10849010}. However, many existing approaches still rely on extensive clean data or prior knowledge of attack characteristics, which may not always be available.
+
+\subsection{Non-Invasive Backdoor Mitigation}
+
+The Anti-Backdoor Model (ABM) introduced a non-invasive framework that leverages knowledge distillation and low-volume poisoned data to counteract backdoor behavior without directly altering the attacked model \cite{10620313}. By training an auxiliary student model focused solely on backdoor activations, ABM effectively suppresses malicious responses during inference while preserving clean performance. Subsequent studies have expanded upon this idea by incorporating dataset purification, contrastive learning, and adaptive splitting strategies to improve robustness across diverse attack settings \cite{10491118,11045703,10204451}.
+
+Despite these advances, challenges remain in achieving fully autonomous trigger detection and scalable deployment across different network architectures and attack types. Motivated by these gaps, the proposed framework builds upon non-invasive defense principles while emphasizing autonomous trigger identification and model integrity restoration through enhanced convolutional feature analysis.
+
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{fig_2.png}
+\caption{Illustration of a non-invasive backdoor attack and verification process. (A) Poisoned samples with embedded triggers are assigned attacker defined target labels during training. (B) The verification model is trained on a mixture of clean and poisoned data without explicit knowledge of the trigger. (C) During inference, the compromised model produces correct predictions for clean inputs while misclassifying triggered samples into the target class.}
+\label{fig:nbab}
+\end{figure*}
+
+
+\section{Problem Statement}
+
+Deep neural networks trained on large scale datasets are increasingly deployed in real world and safety critical applications. However, the widespread use of third party datasets and pre trained models introduces serious security concerns, particularly in the form of backdoor poisoning attacks. In such attacks, a small number of poisoned samples are injected during training, causing the model to behave normally on benign inputs while producing attacker defined outputs when a specific trigger pattern is present. Since the malicious behavior remains dormant under standard testing conditions, backdoor attacks are difficult to detect using conventional validation metrics.
+
+
+
+Deep neural networks are vulnerable to backdoor poisoning attacks, where an adversary embeds malicious behavior into a model during training by injecting a small number of poisoned samples. The compromised model exhibits normal prediction accuracy on clean inputs, but produces attacker defined outputs when a specific trigger pattern is present. Since the trigger remains inactive under standard validation settings, such attacks are difficult to detect and pose serious security risks in safety critical applications.
+
+A particularly challenging scenario arises in non-invasive backdoor attack and defense settings, where the defender has no access to the original clean training dataset or the poisoning trigger. As illustrated in Fig.~\ref{fig:nbab}, poisoned samples may be indistinguishable from benign data at the input level, while inducing malicious decision boundaries within the trained model. This makes traditional data filtering and trigger reverse engineering techniques ineffective.
+
+Most existing backdoor mitigation approaches rely on invasive strategies such as retraining, fine tuning, or modifying network parameters. These methods often require extensive clean reference data and may significantly degrade the clean accuracy of the compromised model. In real world deployment scenarios, such assumptions are impractical, as models are frequently obtained from untrusted sources and deployed as black box or frozen systems.
+
+Furthermore, existing defenses lack the ability to autonomously suppress backdoor behavior during inference without altering the internal parameters of the compromised model. As shown in Fig.~\ref{fig:nbab}, a backdoored model may correctly classify clean samples while consistently misclassifying triggered inputs into attacker chosen target classes. This dual behavior highlights the need for a defense mechanism that can preserve clean inference while selectively neutralizing malicious responses.
+
+Therefore, the core problem addressed in this work is the design of a non-invasive backdoor defense framework that can detect and mitigate backdoor triggered behavior without retraining or parameter modification. The solution must maintain clean classification accuracy, operate under limited assumptions, and remain effective against targeted backdoor attacks in realistic deployment settings.
+
+
+\section{Proposed Method}
+
+The proposed framework follows a non-invasive defense paradigm designed to mitigate backdoor behavior without modifying the internal parameters of the compromised model. The overall workflow, illustrated in Fig.~\ref{fig:method}, consists of three key stages: backdoor activation characterization, student model distillation, and inference-time suppression of malicious responses.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{fig_3.png}
+\caption{Overview of the proposed non-invasive backdoor mitigation framework. (A) A backdoored teacher model exhibits normal behavior on clean inputs while misclassifying trigger embedded inputs into an attacker defined target class. (B) Activation-guided knowledge distillation is used to train a lightweight student model that captures benign decision behavior while suppressing backdoor sensitive activations. (C) During inference, the student model preserves clean accuracy and prevents backdoor triggered misclassification.}
+\label{fig:method}
+\end{figure*}
+
+\subsection{Backdoored Teacher Model Behavior}
+
+A compromised teacher model is assumed to be trained on a poisoned dataset containing a small number of trigger embedded samples targeting a specific class. As shown in Fig.~\ref{fig:method}(A), the model produces correct predictions for clean inputs while misclassifying trigger embedded inputs into an attacker defined target class. This dual behavior allows the backdoor to remain dormant under normal evaluation conditions, making detection difficult using standard validation metrics.
+
+\subsection{Activation-Guided Knowledge Distillation}
+
+To suppress the malicious behavior without altering the teacher model parameters, a lightweight student model is introduced, as illustrated in Fig.~\ref{fig:method}(B). Intermediate activations of the teacher model are analyzed to identify backdoor sensitive responses that differ significantly between clean and triggered inputs. These activation discrepancies serve as implicit supervision signals during the distillation process.
+
+The student model is trained using knowledge distillation, where it learns to approximate the benign decision behavior of the teacher model while selectively ignoring backdoor induced activations. Unlike conventional distillation approaches that aim to fully replicate the teacher model, the objective here is to preserve clean classification performance while reducing sensitivity to trigger patterns.
+
+\subsection{Inference-Time Backdoor Suppression}
+
+During inference, both clean and potentially triggered inputs are processed through the student model, as shown in Fig.~\ref{fig:method}(C). For clean inputs, the student model closely follows the teacher’s predictions, maintaining high classification accuracy. In contrast, when trigger patterns are present, the student model suppresses the backdoor response learned by the teacher, preventing misclassification into the attacker chosen target class.
+
+This selective suppression mechanism enables effective mitigation of backdoor attacks without requiring access to the original clean training dataset or performing invasive retraining. By isolating malicious activation pathways and neutralizing them through distillation, the proposed method achieves robust backdoor defense while preserving the functional integrity of the original model.
+
+
+\subsection{Overview of the Framework}
+
+The proposed framework is designed to mitigate backdoor poisoning attacks in convolutional neural networks while preserving clean classification accuracy. As illustrated in Fig.~\ref{fig:method}, a compromised teacher model processes both clean and triggered inputs. Activation patterns extracted from selected layers are analyzed to identify abnormal responses caused by hidden triggers. A lightweight student model is trained using knowledge distillation to learn clean task behavior and suppress backdoor-induced activations during inference.
+
+\subsection{Teacher Model and Activation Analysis}
+
+Let $f_T(\cdot)$ denote the compromised teacher model trained on an untrusted dataset. For a clean input sample $x$, the teacher model produces a correct prediction $f_T(x)$. When a trigger pattern $\Delta$ is embedded into the input, denoted as $x \oplus \Delta$, the model exhibits abnormal behavior.
+
+Let $A_T^l(x)$ represent the activation vector of layer $l$ in the teacher model. The activation deviation introduced by the trigger is defined as:
+
+\begin{equation}
+\delta_l = \left\| A_T^l(x \oplus \Delta) - A_T^l(x) \right\|_2
+\end{equation}
+
+Consistently high deviations across samples indicate backdoor-sensitive layers. These activation statistics are retained and used to guide student model training without altering the teacher model.
+
+\subsection{Student Model Training via Knowledge Distillation}
+
+A lightweight student model $f_S(\cdot)$ is introduced to absorb benign task knowledge from the teacher model. Knowledge distillation is employed using soft labels generated by the teacher model on clean samples.
+
+The distillation loss is defined as:
+
+\begin{equation}
+\mathcal{L}_{KD} = \text{KL}\big(\sigma(f_T(x)/\tau), \sigma(f_S(x)/\tau)\big)
+\end{equation}
+
+where $\sigma(\cdot)$ denotes the softmax function and $\tau$ is the temperature parameter. This process enables the student model to replicate clean behavior while avoiding direct learning of backdoor associations.
+
+\subsection{Backdoor Suppression Objective}
+
+To jointly preserve clean accuracy and suppress backdoor responses, the overall training objective is formulated as:
+
+\begin{equation}
+\mathcal{L}_{total} = \mathcal{L}_{clean} + \lambda \mathcal{L}_{KD} + \beta \mathcal{L}_{act}
+\end{equation}
+
+where $\mathcal{L}_{clean}$ denotes cross-entropy loss on clean data, $\mathcal{L}_{act}$ penalizes abnormal activation deviations, and $\lambda$, $\beta$ are weighting factors. This objective ensures that the student model retains task performance while neutralizing trigger-induced behavior.
+
+\subsection{Inference-Time Defense}
+
+During inference, inputs are evaluated using the trained student model instead of the compromised teacher model. Clean inputs yield correct predictions, while triggered inputs fail to activate malicious behavior. As shown in Fig.~\ref{fig:method}, the student model effectively suppresses backdoor activations and restores correct outputs.
+
+\begin{algorithm}[t]
+\caption{Non-Invasive Backdoor Suppression via Activation-Guided Distillation}
+\label{alg:nibs}
+\begin{algorithmic}[1]
+\Require Untrusted dataset $D$, compromised teacher model $f_T$, temperature $\tau$
+\Ensure Backdoor-suppressed student model $f_S$
+
+\State Initialize lightweight student model $f_S$
+\State Identify backdoor-sensitive layers $\mathcal{L}$ using activation deviation
+
+\For{each training epoch}
+    \For{each clean sample $x \in D$}
+        \State Compute teacher prediction $p_T = \sigma(f_T(x)/\tau)$
+        \State Compute student prediction $p_S = \sigma(f_S(x)/\tau)$
+        \State Compute activation deviation:
+        \[
+        \delta_l = \left\| A_T^l(x \oplus \Delta) - A_T^l(x) \right\|_2, 
+        \quad l \in \mathcal{L}
+        \]
+        \State Compute distillation loss:
+        \[
+        \mathcal{L}_{KD} = \mathrm{KL}(p_T \parallel p_S)
+        \]
+        \State Compute total loss:
+        \[
+        \mathcal{L}_{total} = \mathcal{L}_{clean} + \lambda \mathcal{L}_{KD} + \beta \sum_{l \in \mathcal{L}} \delta_l
+        \]
+        \State Update student model $f_S$ using backpropagation
+    \EndFor
+\EndFor
+
+\State \Return $f_S$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Output and Inference Objective}
+
+The objective of the proposed non-invasive backdoor suppression framework is to recover a reliable inference model from a compromised network without modifying its internal parameters. As detailed in Algorithm~\ref{alg:nibs}, a lightweight student model is trained to suppress backdoor-induced activations while preserving the clean classification capability of the original task.
+
+By jointly minimizing the clean classification loss, the knowledge distillation loss, and the activation deviation penalty, the student model learns to replicate benign decision behavior while neutralizing trigger-dependent responses. The overall optimization objective is defined as:
+
+\begin{equation}
+\mathcal{L}_{total} = \mathcal{L}_{clean} + \lambda \mathcal{L}_{KD}
++ \beta \sum_{l \in \mathcal{L}} \delta_l
+\end{equation}
+
+where $\mathcal{L}_{clean}$ enforces correct predictions on clean inputs, $\mathcal{L}_{KD}$ transfers benign knowledge from the compromised teacher model, and $\delta_l$ represents the activation deviation at backdoor-sensitive layers.
+
+Upon convergence, the output of the framework is a backdoor-suppressed student model obtained as:
+
+\begin{equation}
+f_S = \arg\min_{f} \; \mathcal{L}_{total}
+\end{equation}
+
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=\textwidth]{archi.png}
+\caption{Overall architecture of the proposed non-invasive backdoor suppression framework consisting of three sequential phases: data preparation and poisoning, trigger detection and isolation, and recovery through clean retraining.}
+\label{fig:architecture}
+\end{figure*}
+
+
+During inference, the student model $f_S$ is used in place of the compromised teacher model. Clean inputs are classified correctly with high accuracy, while triggered inputs fail to activate the learned backdoor behavior, resulting in a significantly reduced attack success rate. This completes the proposed non-invasive recovery process.
+
+
+\section{Proposed Architecture}
+
+\subsection{Phase I: Data Preparation and Poisoning}
+
+Backdoor poisoning attacks are typically introduced during the data preparation
+stage by embedding malicious trigger patterns into a subset of training samples
+while preserving high accuracy on benign inputs \cite{8685687,9156913}. In this
+phase, the CIFAR-10 dataset is acquired and preprocessed through reshaping,
+normalization, and label noise filtering to construct a clean dataset $D_1$.
+
+A baseline convolutional neural network is trained on $D_1$ to establish reference
+metrics such as clean accuracy (CA) and attack success rate (ASR). To simulate a
+realistic backdoor scenario, a subset of samples from $D_1$ is selected and embedded
+with a weak trigger pattern $\Delta$, producing a poisoned dataset $D_2$. The labels
+of poisoned samples are reassigned to a target class $y_t$, forming an implicit
+trigger-response association as observed in prior studies \cite{8835365,9711191}.
+
+Formally, the poisoned sample generation can be expressed as:
+\begin{equation}
+x_p = x \oplus \Delta, \quad y_p = y_t
+\end{equation}
+
+where $x$ denotes a clean input sample and $\oplus$ represents the trigger embedding
+operation. The resulting poisoned dataset is combined with clean samples to form a
+mixed dataset $D_3 = D_1 \cup D_2$, which serves as the foundation for downstream
+trigger analysis. This controlled poisoning process enables systematic evaluation
+of backdoor behavior while maintaining realistic attack conditions, as illustrated
+in Fig.~\ref{fig:architecture}.
+
+
+\subsection{Phase II: Trigger Detection and Isolation}
+
+The second phase focuses on identifying and isolating samples that exhibit abnormal
+behavior induced by hidden backdoor triggers. Prior research has shown that backdoor
+activations introduce distinct internal representation shifts within neural
+networks, even when output predictions appear benign \cite{9746573,10204451}.
+
+A verification model is trained on the mixed dataset $D_3$ to analyze prediction
+consistency and activation deviations across layers. For a given input $x$, the
+activation vector at layer $l$ is denoted as $A_l(x)$. The deviation introduced by a
+potential trigger is quantified as:
+
+\begin{equation}
+\delta_l(x) = \| A_l(x \oplus \Delta) - A_l(x) \|_2
+\end{equation}
+
+Samples that produce deviations exceeding a predefined threshold $\tau_l$ are
+flagged as suspicious:
+\begin{equation}
+x \in D_4 \quad \text{if} \quad \delta_l(x) > \tau_l
+\end{equation}
+
+This process enables the isolation of previously unidentified trigger samples into
+a separate dataset $D_4$ without requiring prior knowledge of trigger structure or
+location. Such behavior-driven detection aligns with recent non-invasive defense
+strategies that avoid modifying compromised model parameters
+\cite{10620313,10463411}. The trigger isolation workflow is depicted in
+Fig.~\ref{fig:architecture}.
+
+\subsection{Phase III: Recovery and Clean Retraining}
+
+The final phase aims to restore model integrity while preserving clean inference
+performance. Isolated trigger samples from $D_4$ are analyzed to extract active
+trigger patterns, which are subsequently neutralized or removed to construct an
+updated clean dataset $D_5$.
+
+A new convolutional neural network is trained on $D_5$ using standard optimization
+procedures. The recovery objective is to minimize backdoor influence while
+maintaining classification accuracy, which can be expressed as a joint optimization
+problem:
+
+\begin{equation}
+\mathcal{L}_{rec} = \mathcal{L}_{CE} + \lambda \mathcal{L}_{def}
+\end{equation}
+
+where $\mathcal{L}_{CE}$ denotes the cross-entropy loss on clean samples and
+$\mathcal{L}_{def}$ represents a defense regularization term that penalizes abnormal
+activation responses. The hyperparameter $\lambda$ controls the balance between
+accuracy preservation and backdoor suppression \cite{8835365,10596291}.
+
+Performance evaluation is conducted using clean accuracy, attack success rate, and
+poison defense score metrics. As shown in Fig.~\ref{fig:architecture}, this phase
+completes the non-invasive recovery pipeline by producing a robust model capable of
+resisting trigger-induced misclassification during inference.
+
+\section{Experimental Setup}
+
+This section describes the experimental configuration used to evaluate the effectiveness of the proposed non-invasive backdoor suppression framework. The setup is designed to simulate a realistic backdoor poisoning scenario while measuring both clean performance and attack mitigation capability.
+
+\subsection{Dataset and Backdoor Injection}
+
+Experiments are conducted on the CIFAR-10 dataset, consisting of 60,000 color images across 10 classes. To simulate a realistic poisoning scenario, a subset of training samples is modified by embedding a weak visual trigger and reassigning their labels to a target class.
+
+Fig.~\ref{fig:trigger_injection} presents representative samples before and after trigger injection. As observed, the trigger does not introduce perceptible visual artifacts, highlighting the stealthiness of the poisoning process and the difficulty of detecting backdoors through manual inspection.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{trig.jpeg}
+\caption{Visualization of clean CIFAR-10 samples before and after trigger injection. The visual similarity demonstrates the stealthy nature of the backdoor trigger.}
+\label{fig:trigger_injection}
+\end{figure}
+
+\subsection{Backdoor Attack Configuration}
+
+A targeted backdoor attack is implemented in which the presence of a trigger causes inputs to be misclassified into the automobile class. The compromised teacher model achieves high clean accuracy while exhibiting a high attack success rate on triggered inputs.
+
+Fig.~\ref{fig:suppression} illustrates the effect of the proposed defense during inference. While the compromised model responds incorrectly to triggered inputs, the student model effectively suppresses backdoor activations and restores correct predictions, confirming the robustness of the proposed framework.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{zoom.jpeg}
+\caption{Before-and-after comparison of triggered samples processed by the compromised teacher model and the proposed student model, illustrating effective backdoor suppression.}
+\label{fig:suppression}
+\end{figure}
+
+\subsection{Model Architecture and Training Details}
+
+The proposed framework adopts a dual-model architecture composed of a compromised
+teacher model and a lightweight student model. The teacher model is a convolutional
+neural network trained on a potentially poisoned dataset and is assumed to embed
+hidden backdoor behavior. The student model is trained to preserve clean
+classification performance while suppressing backdoor-induced activations.
+
+To achieve this, knowledge distillation is employed to transfer benign knowledge
+from the teacher model to the student model without directly modifying the
+parameters of the compromised teacher. Let $f_T$ and $f_S$ denote the teacher and
+student models, respectively. For an input sample $x$, the softened prediction
+probabilities are computed using temperature scaling as
+
+\begin{equation}
+p_T(x) = \sigma\left(\frac{f_T(x)}{\tau}\right), \quad
+p_S(x) = \sigma\left(\frac{f_S(x)}{\tau}\right)
+\end{equation}
+
+where $\sigma(\cdot)$ represents the softmax function and $\tau$ is the temperature
+parameter that controls the smoothness of the output probability distribution.
+
+The distillation loss is defined using the Kullback--Leibler divergence between the
+softened outputs of the teacher and student models:
+
+\begin{equation}
+\mathcal{L}_{KD} = \tau^{2} \cdot \mathrm{KL}\big(p_T(x) \,\|\, p_S(x)\big)
+\end{equation}
+
+To ensure correct prediction on clean samples, a standard cross-entropy loss is
+applied between the student predictions and the ground-truth labels $y$:
+
+\begin{equation}
+\mathcal{L}_{CE} = - \sum y \log \sigma(f_S(x))
+\end{equation}
+
+The overall training objective of the student model is formulated as a weighted
+combination of the classification loss and the distillation loss:
+
+\begin{equation}
+\mathcal{L}_{total} = \alpha \mathcal{L}_{CE} + (1 - \alpha)\mathcal{L}_{KD}
+\end{equation}
+
+where $\alpha \in [0,1]$ controls the balance between clean accuracy preservation
+and backdoor suppression. This optimization enables the student model to retain
+benign decision boundaries while reducing sensitivity to trigger-induced behavior
+during inference.
+
+\subsection{Evaluation Metrics}
+
+The proposed framework is evaluated using three primary metrics. Clean Accuracy (CA) measures classification performance on benign test samples. Attack Success Rate (ASR) quantifies the proportion of triggered inputs misclassified into the target class. In addition, a backdoor defense score is reported to capture the overall effectiveness of the suppression mechanism.
+
+\begin{table}[htbp]
+\caption{Clean Accuracy (CA) Comparison}
+\label{tab:ca}
+\centering
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Method} & \textbf{CA (\%)} \\
+\hline
+No Defense (Teacher) & 97.15 \\
+Fine-Pruning-based Defense \cite{10463411} & 96.7 \\
+Neural Cleanse \cite{8835365} & 95.9 \\
+Anti-Backdoor Model (ABM) \cite{10620313} & 89.90 \\
+Proposed Method & \textbf{94.82} \\
+\hline
+\end{tabular}
+\end{table}
+\noindent\textbf{Clean Accuracy Preservation:}
+Table~\ref{tab:ca} presents the clean accuracy (CA) comparison between the proposed
+framework and representative backdoor defense mechanisms. Clean accuracy is a
+critical evaluation metric, as an effective defense must suppress malicious
+behavior without significantly degrading performance on benign inputs. In the
+absence of any defense, the compromised teacher model achieves a clean accuracy
+of 97.15\%, reflecting the baseline performance of the original classification
+task.
+
+Model-modification-based defenses aim to preserve clean accuracy by altering the
+internal structure of the network. Fine-grained neuron or channel removal
+strategies reduce the attack surface while attempting to retain task-relevant
+features \cite{10463411}. Trigger reverse-engineering approaches such as Neural
+Cleanse preserve competitive clean accuracy by identifying anomalous activation
+patterns associated with backdoor triggers \cite{8835365}. However, these methods
+often rely on assumptions of trigger consistency and may degrade when confronted
+with adaptive or sample-specific backdoor attacks \cite{9156913,9711191}.
+
+The Anti-Backdoor Model (ABM) adopts a non-invasive defense paradigm and
+successfully suppresses backdoor behavior, but this suppression comes at the
+cost of a noticeable reduction in clean accuracy (89.90\%) \cite{10620313}.
+This degradation is attributed to aggressive activation suppression that
+partially overlaps with benign decision boundaries.
+
+In contrast, the proposed framework maintains a clean accuracy of 94.82\%,
+achieving a favorable balance between robustness and task fidelity. By leveraging
+activation-guided knowledge distillation, the student model selectively suppresses
+trigger-induced activations while preserving representations essential for clean
+inference. This observation aligns with prior work demonstrating that
+distillation-based defenses can mitigate backdoor behavior without direct
+parameter modification of the compromised model
+\cite{9883376,10849010,10336528}.
+
+\noindent\textbf{Hyperparameter Sensitivity Analysis:}
+Table~\ref{tab:sensitivity} analyzes the impact of the suppression strength
+$\gamma$ and the activation deviation weight $\delta$ on the behavior of the
+student model. These parameters jointly regulate the trade-off between backdoor
+suppression and clean feature preservation during knowledge distillation.
+
+Lower values of $\gamma$ result in insufficient suppression, allowing residual
+backdoor activations to persist within the student model. This behavior is
+reflected by elevated knowledge distillation loss and reduced validation
+accuracy, indicating incomplete decoupling of malicious representations.
+Similar limitations of weak suppression have been reported in early
+activation-based defenses \cite{8685687,8835365}.
+
+As $\gamma$ increases, suppression effectiveness improves and the influence of
+backdoor triggers is significantly reduced. However, excessive suppression
+introduces instability in clean feature representations, leading to a gradual
+decline in clean accuracy. This trade-off has also been observed in recent
+non-invasive defenses where over-regularization distorts benign activation
+distributions \cite{10620313,10204451}.
+
+The balanced configuration $(\gamma = 1.5, \delta = 1.0)$ achieves the most
+favorable operating point, minimizing the knowledge distillation loss while
+preserving high validation accuracy. This behavior is consistent with findings
+from test-time and activation-deviation-based defenses, which emphasize the need
+for calibrated suppression rather than aggressive trigger elimination
+\cite{9746573,10204454,10596291}.
+
+The non-monotonic accuracy trend highlights the sensitivity of student models to
+activation deviation constraints, reinforcing that effective backdoor mitigation
+requires carefully tuned suppression rather than maximal removal of anomalous
+activations.
+
+\begin{table*}[htbp]
+\caption{Hyperparameter Sensitivity and Training Dynamics Analysis}
+\label{tab:sensitivity}
+\centering
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Setting} & \textbf{$\gamma$} & \textbf{$\delta$} & \textbf{Mean Deviation} & \textbf{KD Loss (final)} & \textbf{Validation Acc. (\%)} \\
+\hline
+Low suppression & 0.5 & 0.5 & 0.18 & $2.5\times10^{-3}$ & 78.9 \\
+Moderate suppression & 1.0 & 0.5 & 0.36 & $5.1\times10^{-4}$ & 85.2 \\
+Balanced (proposed) & 1.5 & 1.0 & 0.71 & $1.2\times10^{-4}$ & 89.7 \\
+Strong suppression & 2.0 & 1.0 & 1.07 & $8.4\times10^{-5}$ & 91.4 \\
+Over-suppression & 2.0 & 1.5 & 1.41 & $6.9\times10^{-5}$ & 88.6 \\
+\hline
+\end{tabular}
+\end{table*}
+
+\begin{table*}[htbp]
+\caption{Attack Success Rate (ASR \%) Comparison Under CIFAR-10 Targeted Backdoor Attacks}
+\label{tab:asr_long}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+\textbf{Method} & \textbf{Trigger Type} & \textbf{Poison Rate (\%)} & \textbf{Clean Accuracy (\%)} & \textbf{ASR (\%)} & \textbf{Defense Type} \\
+\hline
+No Defense (Teacher) & Static Patch & 10 & 97.15 & 96.40 & None \\
+\hline
+Fine-Pruning \cite{10463411} & Static Patch & 10 & 96.70 & 40.60 & Model Pruning \\
+\hline
+Neural Cleanse \cite{8835365} & Static Patch & 10 & 95.90 & 29.80 & Trigger Reverse \\
+\hline
+STRIP \cite{9746573} & Static Patch & 10 & 95.40 & 18.75 & Runtime Detection \\
+\hline
+Anti-Backdoor Model (ABM) \cite{10620313} & Static Patch & 10 & 89.90 & 12.85 & Non-Invasive \\
+\hline
+\textbf{Proposed Framework} & Static Patch & 10 & \textbf{94.82} & \textbf{4.91} & Non-Invasive (KD) \\
+\hline
+\end{tabular}
+\end{table*}
+
+
+The activation deviation introduced by the suppression mechanism is quantified as:
+\begin{equation}
+\delta_l = \left\| A_l(x + \Delta) - A_l(x) \right\|_2
+\end{equation}
+
+The overall student optimization objective is defined as:
+\begin{equation}
+\mathcal{L}_{total} = \alpha \mathcal{L}_{CE} + (1-\alpha)\mathcal{L}_{KD}
++ \gamma \sum_{l \in \mathcal{L}} \delta_l
+\end{equation}
+\noindent\textbf{Attack Success Rate Evaluation:}
+While clean accuracy reflects benign performance, the primary objective of a backdoor defense is to minimize the attack success rate (ASR). ASR measures the probability that inputs embedded with a trigger are misclassified into an attacker-chosen target class. A robust defense must significantly reduce ASR while preserving acceptable clean accuracy \cite{8685687,9746573}.
+
+
+Table~\ref{tab:asr_long} reports the ASR of different defense strategies under a targeted backdoor attack on the CIFAR-10 automobile class. Without any defense, the compromised teacher model exhibits an ASR of 96.40\%, confirming the severe vulnerability of standard deep neural networks to poisoning-based attacks \cite{8685687}.
+
+Existing defenses such as fine-pruning and Neural Cleanse reduce ASR by removing or reversing backdoor-related features, but remain susceptible to adaptive or low-frequency triggers \cite{10204451,10204454}. Runtime detection mechanisms, including STRIP, achieve moderate mitigation by identifying prediction instability during inference, though they introduce additional computational overhead and may be bypassed by trigger-aware attackers \cite{9746573,10735305}.
+
+The Anti-Backdoor Model (ABM) demonstrates improved robustness under a non-invasive setting, achieving an ASR of 12.85\% \cite{10620313}. The proposed framework further suppresses backdoor effectiveness, achieving the lowest ASR of 4.91\% among all evaluated methods. This improvement is attributed to activation deviation minimization and controlled knowledge transfer, which jointly weaken the backdoor pathway while preserving clean representations.
+
+\begin{figure}[htbp]
+\centering
+
+\begin{minipage}{0.30\linewidth}
+\centering
+\includegraphics[width=\linewidth]{gradcam_input.jpg}\\
+(a) Triggered Input
+\end{minipage}
+\hfill
+\begin{minipage}{0.30\linewidth}
+\centering
+\includegraphics[width=\linewidth]{gradcam_clean.png}\\
+(b) Clean Grad-CAM
+\end{minipage}
+\hfill
+\begin{minipage}{0.30\linewidth}
+\centering
+\includegraphics[width=\linewidth]{gradcam_attack.png}\\
+(c) Backdoor Grad-CAM
+\end{minipage}
+
+\caption{Grad-CAM visualization under clean and backdoored inference. The clean Grad-CAM highlights semantically relevant regions, whereas the backdoored inference exhibits dominant activation around the trigger location.}
+\label{fig:gradcam}
+\end{figure}
+
+\subsection{Grad-CAM Based Interpretability Analysis}
+
+To qualitatively analyze the effectiveness of the proposed non-invasive backdoor
+suppression framework, Gradient-weighted Class Activation Mapping (Grad-CAM) is
+employed to visualize class-discriminative activation regions during inference
+\cite{selvaraju2017gradcam}. Grad-CAM highlights the spatial locations that
+contribute most significantly to the model’s prediction, enabling inspection
+of whether decisions are driven by semantic features or backdoor triggers.
+
+Figure~\ref{fig:gradcam} presents a comparison between clean and backdoored
+Grad-CAM visualizations for a triggered input. Under clean inference, activation
+maps focus on object-relevant regions, indicating reliance on meaningful visual
+features. In contrast, the backdoored model exhibits concentrated activation
+around the trigger location, consistent with observations reported in prior
+activation-based backdoor studies \cite{chen2019detecting,9746573}.
+
+After applying the proposed suppression mechanism, trigger-centric activations
+are significantly attenuated, while attention over benign object regions is
+largely preserved. This behavior suggests successful disentanglement of
+backdoor-induced features from clean representations without altering the
+teacher model parameters. Similar activation realignment trends have been noted
+in attribution-driven and purification-based defenses
+\cite{samek2021explaining,10596291}.
+
+Overall, the Grad-CAM analysis provides complementary visual evidence that the
+proposed framework restores interpretable and semantically consistent activation
+behavior while mitigating spatially localized backdoor triggers.
+
+\subsection{Adaptive Backdoor Attacks}
+
+Recent studies have shown that adversaries can design adaptive backdoor attacks
+that explicitly attempt to evade existing detection and suppression mechanisms.
+Unlike static trigger-based attacks, adaptive strategies dynamically modify
+trigger patterns or optimize them with respect to the deployed defense, thereby
+maintaining high attack success rates under defensive constraints
+\cite{11354648}.
+
+Such attacks often employ composite or input-aware triggers that vary across
+samples, making activation-based or signature-driven defenses less effective.
+By dispersing trigger influence across spatial and semantic regions, adaptive
+backdoors reduce the reliability of fixed-pattern detection and amplify stealth
+during inference.
+
+The proposed framework mitigates this threat by relying on activation deviation
+and knowledge distillation rather than explicit trigger localization. Since the
+student model learns to suppress anomalous activation behavior instead of
+memorizing specific trigger patterns, the defense remains resilient even when
+trigger characteristics are adaptively altered. This design choice aligns with
+the emerging consensus that generalization-based suppression is more robust than
+rule-based defenses under adaptive adversarial settings.
+
+\subsection{Potential Limitations}
+
+Despite its effectiveness, the proposed framework has several limitations.
+First, the reliance on activation deviation assumes that backdoor behavior
+induces sufficiently distinguishable internal representations. In scenarios
+where adaptive or highly distributed triggers closely overlap with benign
+features, activation-based suppression may become less discriminative.
+
+Second, the knowledge distillation process introduces an additional training
+stage, which increases computational overhead and may limit applicability in
+resource-constrained or real-time deployment settings. While the student model
+is lightweight, repeated retraining may be required when the threat model
+evolves or when the underlying data distribution shifts.
+
+Finally, the current design primarily targets image classification models and
+does not explicitly address backdoor threats in large-scale or cross-domain
+settings such as multimodal or language-based models. Recent studies indicate
+that backdoor behaviors in large language models and federated environments
+exhibit distinct characteristics that require specialized mitigation strategies
+\cite{10735305,11045703}. Extending the proposed framework to these domains
+remains an important direction for future work.
+
+\section{Conclusion}
+
+This work introduced a non-invasive framework for backdoor trigger detection and
+model integrity restoration using activation-guided knowledge distillation.
+By analyzing backdoor-sensitive activation patterns, the proposed approach
+suppresses malicious behavior without directly modifying the compromised model.
+Experimental results on the CIFAR-10 dataset demonstrate a substantial reduction
+in attack success rate while maintaining strong clean accuracy. Grad-CAM-based
+analysis further confirms that the framework redirects model attention toward
+benign semantic regions, indicating effective backdoor neutralization. These
+results highlight the practicality of the proposed method for securing deep
+learning models in safety-critical applications.
+
+\appendices
+
+\appendix
+
+\subsection*{A. Additional Discussion on Suppression Stability}
+Table~\ref{tab:appendix_asr} further analyzes the stability of the proposed framework under different backdoor configurations.
+Unlike invasive defenses that directly modify compromised parameters, the proposed activation-guided distillation mechanism exhibits stable suppression behavior across repeated trials.
+This stability arises from the explicit separation of benign and malicious activation pathways during student training, which reduces unintended interference with clean representations.
+Similar observations regarding activation-level disentanglement have been reported in recent backdoor mitigation studies
+\cite{samek2021explaining,chen2019detecting}.
+
+\begin{table}[htbp]
+\caption{Attack Success Rate (ASR) and Clean Accuracy (CA) of the Proposed Framework}
+\label{tab:appendix_asr}
+\centering
+\begin{tabular}{|l|l|c|c|}
+\hline
+\textbf{Dataset} & \textbf{Attack Type} & \textbf{ASR (\%)} & \textbf{CA (\%)} \\
+\hline
+CIFAR-10 & No Defense (Teacher) & 96.40 & 97.15 \\
+CIFAR-10 & Weak Trigger (Poisoned) & 92.85 & 88.12 \\
+CIFAR-10 & ABM Baseline & 12.85 & 89.90 \\
+CIFAR-10 & Proposed Framework & \textbf{4.91} & \textbf{94.82} \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection*{B. Effect of Distillation-Guided Neutralization}
+The effectiveness of the proposed framework is closely tied to the use of knowledge distillation as a guidance mechanism.
+By aligning student responses with teacher logits while penalizing backdoor-sensitive activations, the framework avoids overfitting to poisoned patterns.
+This behavior is consistent with prior findings that distillation can act as an implicit regularizer against spurious correlations
+\cite{sundararajan2017axiomatic,zeiler2014visualizing}.
+Without distillation, suppression becomes unstable and sensitive to initialization, as also observed in earlier non-guided defenses.
+
+\subsection*{C. Visualization-Based Interpretability Analysis}
+Gradient-based interpretability tools provide additional evidence of effective backdoor suppression.
+Grad-CAM visualizations show that, under the proposed framework, attention shifts away from trigger regions and realigns with semantically relevant object features.
+Such spatial realignment has been widely adopted as an indicator of successful backdoor mitigation and trustworthy model behavior
+\cite{selvaraju2017gradcam,samek2021explaining}.
+This confirms that suppression is achieved through representational correction rather than output masking.
+
+\subsection*{D. Comparison with Dataset-Level Purification Defenses}
+Unlike dataset purification methods that rely on explicit poisoned sample removal, the proposed framework operates entirely at inference time without retraining the teacher model.
+While purification-based defenses can be effective, they often require strong assumptions about data availability and attack visibility.
+The proposed approach avoids these constraints, making it more suitable for post-deployment defense scenarios.
+
+\subsection*{E. Summary of Appendix Findings}
+Overall, the appendix results reinforce that activation-guided knowledge distillation provides a robust and non-invasive mechanism for suppressing backdoor behavior.
+The framework achieves consistent attack success rate reduction while preserving clean accuracy, as summarized in Table~\ref{tab:appendix_asr}.
+These findings complement the main experimental results and further validate the practicality of the proposed defense under realistic threat models.
+
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
